@@ -1,0 +1,113 @@
+{
+  "Customers.customer_status": [
+    "Active Status",
+    "Pending Status",
+    "Pending Verification Status",
+    "Suspended Status",
+    "Frozen Status",
+    "Locked Status",
+    "Closed Status",
+    "Inactive Status",
+    "Dormant Status",
+    "Restricted Status",
+    "Terminated Status",
+    "Archived Status",
+    "Under Review Status"
+  ],
+  "Accounts.account_type": [
+    "Individual Account",
+    "Personal Account",
+    "Corporate Account",
+    "Business Account",
+    "Joint Account",
+    "Savings Account",
+    "Checking Account",
+    "Current Account",
+    "Merchant Account",
+    "Admin Account",
+    "System Account",
+    "Trust Account",
+    "Custodial Account",
+    "Escrow Account",
+    "Investment Account",
+    "Brokerage Account",
+    "Retirement Account",
+    "Loan Account",
+    "Credit Card Account"
+  ],
+  "Accounts.status": [
+    "Active Status",
+    "Pending Status",
+    "Pending Verification Status",
+    "Suspended Status",
+    "Frozen Status",
+    "Locked Status",
+    "Closed Status",
+    "Inactive Status",
+    "Dormant Status",
+    "Restricted Status",
+    "Terminated Status",
+    "Archived Status",
+    "Under Review Status"
+  ],
+  "Transactions.transaction_type": [
+    "Deposit Transaction",
+    "Credit Transaction",
+    "Withdrawal Transaction",
+    "Debit Transaction",
+    "Transfer Transaction",
+    "Internal Transfer Transaction",
+    "External Transfer Transaction",
+    "Payment Transaction",
+    "Refund Transaction",
+    "Chargeback Transaction",
+    "Reversal Transaction",
+    "Fee Transaction",
+    "Interest Credit Transaction",
+    "Tax Deduction Transaction",
+    "Adjustment Transaction",
+    "Void Transaction",
+    "Authorized Transaction",
+    "Settled Transaction",
+    "Declined Transaction",
+    "Disputed Transaction"
+  ],
+  "Transactions.status": [
+    "Success",
+    "Pending",
+    "Failed",
+    "Flagged",
+    "Blocked",
+    "Reversed"
+  ],
+  "Anomaly_Patterns.severity_level": [
+    "Negligible",
+    "Low",
+    "Medium",
+    "High",
+    "Critical",
+    "Catastrophic"
+  ],
+  "Anomaly_Patterns.action_taken": [
+    "Allow",
+    "Flag_For_Review",
+    "Require_2FA",
+    "Block_Temporary",
+    "Block_Permanent"
+  ],
+  "Dispute_Logs.dispute_type": [
+    "Unauthorized Transaction",
+    "Duplicate Transaction",
+    "Incorrect Amount",
+    "Merchant Dispute",
+    "Fraud Dispute",
+    "Other"
+  ],
+  "Dispute_Logs.dispute_status": [
+    "Open",
+    "Under Investigation",
+    "Resolved",
+    "Rejected",
+    "Escalated"
+  ]
+}

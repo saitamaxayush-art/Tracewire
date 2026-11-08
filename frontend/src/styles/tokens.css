@@ -1,0 +1,55 @@
+/* Design tokens. Components use these variables and no other colour values. */
+:root {
+  /* Core palette */
+  --ink: #0a0e13;
+  --graphite: #141a21;
+  --line: #26303a;
+  --paper: #f2efe8;
+  --muted: #8a96a3;
+  --white: #ffffff;
+  /* Darker grey for secondary text on paper and white, keeps 4.5:1 contrast. */
+  --muted-on-light: #545e69;
+
+  --brand-panel: #0f7b63;
+  --brand-bright: #22c493;
+  --alert: #e5483a;
+
+  /* Severity ramp */
+  --sev-negligible: #6b7785;
+  --sev-low: #3fb5a0;
+  --sev-medium: #f2b01e;
+  --sev-high: #f27a21;
+  --sev-critical: #e5483a;
+  --sev-catastrophic: #a3122a;
+
+  /* Status colours */
+  --st-success: #22c493;
+  --st-pending: #f2b01e;
+  --st-failed: #8a96a3;
+  --st-flagged: #f27a21;
+  --st-blocked: #e5483a;
+  --st-reversed: #7c8fa6;
+
+  /* Derived surfaces (same hues, transparency only) */
+  --inset: rgba(10, 14, 19, 0.55);
+  --frost: rgba(10, 14, 19, 0.72);
+  --hover: rgba(242, 239, 232, 0.05);
+  --focus: #22c493;
+
+  /* Type */
+  --font-head: 'Inter Tight Variable', 'Inter Tight', system-ui, sans-serif;
+  --font-body: 'Inter Variable', 'Inter', system-ui, sans-serif;
+  --font-mono: 'JetBrains Mono Variable', 'JetBrains Mono', ui-monospace, monospace;
+
+  /* Shape */
+  --r-btn: 6px;
+  --r-card: 8px;
+  --r-search: 14px;
+
+  /* Layout */
+  --nav-h: 52px;
+  --gutter: clamp(16px, 4vw, 48px);
+  --maxw: 1320px;
+
+  --ease: cubic-bezier(0.2, 0.7, 0.1, 1);
+}

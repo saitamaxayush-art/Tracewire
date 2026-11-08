@@ -1,0 +1,502 @@
+[
+  {
+    "account_id": "4019283741",
+    "customer_id": "84920115",
+    "account_number": "1002345678",
+    "account_type": "Savings Account",
+    "balance": 245680.5,
+    "currency": "INR",
+    "status": "Active Status",
+    "ifsc_code": "HDFC0001234"
+  },
+  {
+    "account_id": "7821039482",
+    "customer_id": "91823049",
+    "account_number": "1004567891",
+    "account_type": "Personal Account",
+    "balance": 186520.75,
+    "currency": "USD",
+    "status": "Active Status",
+    "ifsc_code": "CHASE000456"
+  },
+  {
+    "account_id": "8192039481",
+    "customer_id": "67291043",
+    "account_number": "1007891234",
+    "account_type": "Individual Account",
+    "balance": 35000,
+    "currency": "GBP",
+    "status": "Frozen Status",
+    "ifsc_code": "HSBC0005678"
+  },
+  {
+    "account_id": "2938401928",
+    "customer_id": "30482194",
+    "account_number": "1006789123",
+    "account_type": "Current Account",
+    "balance": 1523000,
+    "currency": "INR",
+    "status": "Active Status",
+    "ifsc_code": "UTIB0008901"
+  },
+  {
+    "account_id": "5109283746",
+    "customer_id": "51028374",
+    "account_number": "1008912345",
+    "account_type": "Checking Account",
+    "balance": 78500.2,
+    "currency": "USD",
+    "status": "Active Status",
+    "ifsc_code": "CHASE000101"
+  },
+  {
+    "account_id": "6283749201",
+    "customer_id": "62839104",
+    "account_number": "1009123456",
+    "account_type": "Joint Account",
+    "balance": 125400.8,
+    "currency": "CAD",
+    "status": "Under Review Status",
+    "ifsc_code": "RBC000202"
+  },
+  {
+    "account_id": "7318294012",
+    "customer_id": "73192048",
+    "account_number": "1010234567",
+    "account_type": "Business Account",
+    "balance": 450000,
+    "currency": "AED",
+    "status": "Active Status",
+    "ifsc_code": "ENBD000303"
+  },
+  {
+    "account_id": "4829301746",
+    "customer_id": "48201937",
+    "account_number": "1011345678",
+    "account_type": "Personal Account",
+    "balance": 28900.45,
+    "currency": "EUR",
+    "status": "Active Status",
+    "ifsc_code": "BNPA000404"
+  },
+  {
+    "account_id": "5938201746",
+    "customer_id": "59381720",
+    "account_number": "1012456789",
+    "account_type": "Investment Account",
+    "balance": 875000,
+    "currency": "AUD",
+    "status": "Active Status",
+    "ifsc_code": "ANZ000505"
+  },
+  {
+    "account_id": "6849201837",
+    "customer_id": "68429103",
+    "account_number": "1013567890",
+    "account_type": "Retirement Account",
+    "balance": 12500000,
+    "currency": "JPY",
+    "status": "Active Status",
+    "ifsc_code": "MUFG000606"
+  },
+  {
+    "account_id": "1192837401",
+    "customer_id": "11928374",
+    "account_number": "1014678901",
+    "account_type": "Current Account",
+    "balance": 41200,
+    "currency": "EUR",
+    "status": "Active Status",
+    "ifsc_code": "UNIC000707"
+  },
+  {
+    "account_id": "2293847502",
+    "customer_id": "22938475",
+    "account_number": "1015789012",
+    "account_type": "Savings Account",
+    "balance": 98000,
+    "currency": "EUR",
+    "status": "Active Status",
+    "ifsc_code": "SEBA000808"
+  },
+  {
+    "account_id": "3394857603",
+    "customer_id": "33948576",
+    "account_number": "1016890123",
+    "account_type": "Personal Account",
+    "balance": 14500.5,
+    "currency": "USD",
+    "status": "Under Review Status",
+    "ifsc_code": "ITAU000909"
+  },
+  {
+    "account_id": "4495867704",
+    "customer_id": "44958677",
+    "account_number": "1017901234",
+    "account_type": "Savings Account",
+    "balance": 680200,
+    "currency": "INR",
+    "status": "Active Status",
+    "ifsc_code": "SBIN0001122"
+  },
+  {
+    "account_id": "5596877805",
+    "customer_id": "55968778",
+    "account_number": "1018012345",
+    "account_type": "Business Account",
+    "balance": 320000,
+    "currency": "EUR",
+    "status": "Active Status",
+    "ifsc_code": "DBNK0003344"
+  },
+  {
+    "account_id": "6697887906",
+    "customer_id": "66978879",
+    "account_number": "1019123456",
+    "account_type": "Checking Account",
+    "balance": 52300.75,
+    "currency": "EUR",
+    "status": "Active Status",
+    "ifsc_code": "SGAS0005566"
+  },
+  {
+    "account_id": "7798898007",
+    "customer_id": "77988980",
+    "account_number": "1020234567",
+    "account_type": "Corporate Account",
+    "balance": 2400000,
+    "currency": "USD",
+    "status": "Active Status",
+    "ifsc_code": "NCBI0007788"
+  },
+  {
+    "account_id": "8899908108",
+    "customer_id": "88999081",
+    "account_number": "1021345678",
+    "account_type": "Individual Account",
+    "balance": 8400,
+    "currency": "EUR",
+    "status": "Frozen Status",
+    "ifsc_code": "CSAS0009900"
+  },
+  {
+    "account_id": "9900018209",
+    "customer_id": "99000182",
+    "account_number": "1022456789",
+    "account_type": "Merchant Account",
+    "balance": 1900000,
+    "currency": "USD",
+    "status": "Active Status",
+    "ifsc_code": "DBSB0001212"
+  },
+  {
+    "account_id": "1011128310",
+    "customer_id": "10111283",
+    "account_number": "1023567890",
+    "account_type": "Savings Account",
+    "balance": 345000,
+    "currency": "INR",
+    "status": "Active Status",
+    "ifsc_code": "ICIC0003434"
+  },
+  {
+    "account_id": "1122238411",
+    "customer_id": "11222384",
+    "account_number": "1024678901",
+    "account_type": "Personal Account",
+    "balance": 63500,
+    "currency": "AUD",
+    "status": "Active Status",
+    "ifsc_code": "NABK0005656"
+  },
+  {
+    "account_id": "1233348512",
+    "customer_id": "12333485",
+    "account_number": "1025789012",
+    "account_type": "Joint Account",
+    "balance": 18200,
+    "currency": "EUR",
+    "status": "Under Review Status",
+    "ifsc_code": "PKOB0007878"
+  },
+  {
+    "account_id": "1344458613",
+    "customer_id": "13444586",
+    "account_number": "1026890123",
+    "account_type": "Checking Account",
+    "balance": 4100,
+    "currency": "USD",
+    "status": "Suspended Status",
+    "ifsc_code": "FBNK0009090"
+  },
+  {
+    "account_id": "1455568714",
+    "customer_id": "14555687",
+    "account_number": "1027901234",
+    "account_type": "Savings Account",
+    "balance": 89000,
+    "currency": "USD",
+    "status": "Active Status",
+    "ifsc_code": "SHIN0002323"
+  },
+  {
+    "account_id": "1566678815",
+    "customer_id": "15666788",
+    "account_number": "1028012345",
+    "account_type": "Business Account",
+    "balance": 560000,
+    "currency": "USD",
+    "status": "Active Status",
+    "ifsc_code": "BBVA0004545"
+  },
+  {
+    "account_id": "1677788916",
+    "customer_id": "16777889",
+    "account_number": "1029123456",
+    "account_type": "Personal Account",
+    "balance": 112000,
+    "currency": "EUR",
+    "status": "Active Status",
+    "ifsc_code": "DNBK0006767"
+  },
+  {
+    "account_id": "1788899017",
+    "customer_id": "17888990",
+    "account_number": "1030234567",
+    "account_type": "Current Account",
+    "balance": 4200000,
+    "currency": "INR",
+    "status": "Active Status",
+    "ifsc_code": "KKBK0008989"
+  },
+  {
+    "account_id": "1899909118",
+    "customer_id": "18999091",
+    "account_number": "1031345678",
+    "account_type": "Checking Account",
+    "balance": 47200,
+    "currency": "GBP",
+    "status": "Active Status",
+    "ifsc_code": "BARC0001313"
+  },
+  {
+    "account_id": "1910019219",
+    "customer_id": "19100192",
+    "account_number": "1032456789",
+    "account_type": "Individual Account",
+    "balance": 6500,
+    "currency": "USD",
+    "status": "Restricted Status",
+    "ifsc_code": "HBLA0003535"
+  },
+  {
+    "account_id": "2021129320",
+    "customer_id": "20211293",
+    "account_number": "1033567890",
+    "account_type": "Personal Account",
+    "balance": 38900,
+    "currency": "EUR",
+    "status": "Active Status",
+    "ifsc_code": "SANB0005757"
+  },
+  {
+    "account_id": "2132239421",
+    "customer_id": "21322394",
+    "account_number": "1034678901",
+    "account_type": "Corporate Account",
+    "balance": 8900000,
+    "currency": "INR",
+    "status": "Active Status",
+    "ifsc_code": "PUNB0007979"
+  },
+  {
+    "account_id": "2243349522",
+    "customer_id": "22433495",
+    "account_number": "1035789012",
+    "account_type": "Investment Account",
+    "balance": 1250000,
+    "currency": "USD",
+    "status": "Active Status",
+    "ifsc_code": "BOFA0009191"
+  },
+  {
+    "account_id": "2354459623",
+    "customer_id": "23544596",
+    "account_number": "1036890123",
+    "account_type": "Savings Account",
+    "balance": 9200000,
+    "currency": "JPY",
+    "status": "Active Status",
+    "ifsc_code": "SMBC0001414"
+  },
+  {
+    "account_id": "2465569724",
+    "customer_id": "24655697",
+    "account_number": "1037901234",
+    "account_type": "Checking Account",
+    "balance": 34100,
+    "currency": "CAD",
+    "status": "Active Status",
+    "ifsc_code": "TDUS0003636"
+  },
+  {
+    "account_id": "2576679825",
+    "customer_id": "25766798",
+    "account_number": "1038012345",
+    "account_type": "Individual Account",
+    "balance": 1200,
+    "currency": "GBP",
+    "status": "Locked Status",
+    "ifsc_code": "NWES0005858"
+  },
+  {
+    "account_id": "2687789926",
+    "customer_id": "26877899",
+    "account_number": "1039123456",
+    "account_type": "Personal Account",
+    "balance": 29000,
+    "currency": "USD",
+    "status": "Active Status",
+    "ifsc_code": "NBEG0007070"
+  },
+  {
+    "account_id": "2798890027",
+    "customer_id": "27988900",
+    "account_number": "1040234567",
+    "account_type": "Savings Account",
+    "balance": 76000,
+    "currency": "EUR",
+    "status": "Active Status",
+    "ifsc_code": "BOFI0009292"
+  },
+  {
+    "account_id": "2809900128",
+    "customer_id": "28099001",
+    "account_number": "1041345678",
+    "account_type": "Current Account",
+    "balance": 890000,
+    "currency": "INR",
+    "status": "Active Status",
+    "ifsc_code": "YESB0001515"
+  },
+  {
+    "account_id": "2911010229",
+    "customer_id": "29110102",
+    "account_number": "1042456789",
+    "account_type": "Checking Account",
+    "balance": 95000,
+    "currency": "USD",
+    "status": "Active Status",
+    "ifsc_code": "WFC0003737"
+  },
+  {
+    "account_id": "3022120330",
+    "customer_id": "30221203",
+    "account_number": "1043567890",
+    "account_type": "Personal Account",
+    "balance": 41500,
+    "currency": "EUR",
+    "status": "Active Status",
+    "ifsc_code": "CGD0005959"
+  },
+  {
+    "account_id": "3133230431",
+    "customer_id": "31332304",
+    "account_number": "1044678901",
+    "account_type": "Joint Account",
+    "balance": 16700,
+    "currency": "EUR",
+    "status": "Under Review Status",
+    "ifsc_code": "PRIV0007171"
+  },
+  {
+    "account_id": "3244340532",
+    "customer_id": "32443405",
+    "account_number": "1045789012",
+    "account_type": "Savings Account",
+    "balance": 510000,
+    "currency": "INR",
+    "status": "Active Status",
+    "ifsc_code": "BARB0009393"
+  },
+  {
+    "account_id": "3355450633",
+    "customer_id": "33554506",
+    "account_number": "1046890123",
+    "account_type": "Business Account",
+    "balance": 410000,
+    "currency": "EUR",
+    "status": "Active Status",
+    "ifsc_code": "INGB0001616"
+  },
+  {
+    "account_id": "3466560734",
+    "customer_id": "34665607",
+    "account_number": "1047901234",
+    "account_type": "Corporate Account",
+    "balance": 3100000,
+    "currency": "USD",
+    "status": "Active Status",
+    "ifsc_code": "QNBK0003838"
+  },
+  {
+    "account_id": "3577670835",
+    "customer_id": "35776708",
+    "account_number": "1048012345",
+    "account_type": "Individual Account",
+    "balance": 500,
+    "currency": "USD",
+    "status": "Dormant Status",
+    "ifsc_code": "CITI0005050"
+  },
+  {
+    "account_id": "3688780936",
+    "customer_id": "36887809",
+    "account_number": "1049123456",
+    "account_type": "Savings Account",
+    "balance": 180000,
+    "currency": "INR",
+    "status": "Active Status",
+    "ifsc_code": "IOBA0007272"
+  },
+  {
+    "account_id": "3799891037",
+    "customer_id": "37998910",
+    "account_number": "1050234567",
+    "account_type": "Personal Account",
+    "balance": 68000,
+    "currency": "EUR",
+    "status": "Active Status",
+    "ifsc_code": "DANS0009494"
+  },
+  {
+    "account_id": "3810901138",
+    "customer_id": "38109011",
+    "account_number": "1051345678",
+    "account_type": "Merchant Account",
+    "balance": 7500000,
+    "currency": "USD",
+    "status": "Active Status",
+    "ifsc_code": "HSBC0001717"
+  },
+  {
+    "account_id": "3921011239",
+    "customer_id": "39210112",
+    "account_number": "1052456789",
+    "account_type": "Checking Account",
+    "balance": 120,
+    "currency": "USD",
+    "status": "Terminated Status",
+    "ifsc_code": "AIBK0003939"
+  },
+  {
+    "account_id": "4032121340",
+    "customer_id": "40321213",
+    "account_number": "1053567890",
+    "account_type": "Retirement Account",
+    "balance": 430000,
+    "currency": "AUD",
+    "status": "Active Status",
+    "ifsc_code": "ASBB0005151"
+  }
+]
