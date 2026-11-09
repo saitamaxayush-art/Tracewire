@@ -2,6 +2,7 @@
 // See API_CONTRACT.md for the HTTP mapping of each method.
 
 import type {
+  AccountType,
   ActionTaken,
   DisputeStatus,
   DisputeType,
@@ -138,6 +139,42 @@ export interface AuditQuery extends PageParams {
 
 export type AuditInput = Omit<AuditTrail, 'audit_id'>;
 
+// ---------- Customer side ----------
+
+export interface LoginInput {
+  email: string;
+  /** Demo only: the mock accepts any non-empty value. The live API must verify a stored hash. */
+  password: string;
+}
+
+export interface SignupInput {
+  customer_name: string;
+  email: string;
+  phone_number: string;
+  country: string;
+  nationality: string;
+  preferred_currency: string;
+  account_type: AccountType;
+  /** Opening balance for the new Accounts row, DECIMAL(18,2), in preferred_currency. */
+  opening_balance: number;
+  password: string;
+}
+
+export interface AuthResult {
+  customer: Customer;
+  accounts: Account[];
+}
+
+/** Body of POST /transactions. transaction_ref is assigned by the server. */
+export type TransactionInput = Omit<Transaction, 'transaction_ref'>;
+
+export interface TransactionPatch {
+  status: TransactionStatus;
+}
+
+/** Body of POST /anomalies. anomaly_id is AUTO_INCREMENT. */
+export type AnomalyInput = Omit<AnomalyPattern, 'anomaly_id'>;
+
 export interface SummaryQuery {
   from?: string;
   to?: string;
@@ -237,6 +274,26 @@ export interface FraudApi {
   createAudit(input: AuditInput): Promise<AuditTrail>;
 
   getSummary(q?: SummaryQuery): Promise<StatsSummary>;
+
+  /** Customer sign-in. Resolves the Customers row and its Accounts rows. */
+  login(input: LoginInput): Promise<AuthResult>;
+  /** Creates one Customers row and one linked Accounts row. */
+  signup(input: SignupInput): Promise<AuthResult>;
+  /**
+   * Inserts a Transactions row with the next transaction_ref.
+   * When status is Success the sender account balance is debited in the same write.
+   */
+  createTransaction(input: TransactionInput): Promise<Transaction>;
+  /** Changes status (used after a customer passes 2FA). Moving to Success debits the sender once. */
+  updateTransaction(transaction_ref: string, patch: TransactionPatch): Promise<Transaction>;
+  /** Inserts an Anomaly_Patterns row written by the scoring step. */
+  createAnomaly(input: AnomalyInput): Promise<AnomalyPattern>;
+
+  /**
+   * Calls `onChange` whenever data in the store changes, from this tab or another one.
+   * Open views use it to refetch without a reload. Returns an unsubscribe function.
+   */
+  subscribe(onChange: () => void): () => void;
 
   /** Mock only: restore the seed data. The HTTP adapter rejects with NOT_SUPPORTED. */
   resetData(): Promise<void>;

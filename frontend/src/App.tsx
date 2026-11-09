@@ -1,7 +1,8 @@
 import { lazy, Suspense, useEffect } from 'react';
-import { createBrowserRouter, RouterProvider, useLocation } from 'react-router-dom';
+import { createBrowserRouter, Navigate, RouterProvider, useLocation } from 'react-router-dom';
 import { Layout } from './components/layout/Layout';
 import { SessionProvider } from './lib/session';
+import { CustomerSessionProvider, RequireCustomer } from './lib/customerSession';
 import { brand } from './config/brand';
 import { SkeletonRows } from './components/ui';
 import Home from './pages/home/Home';
@@ -18,6 +19,11 @@ const Replay = lazy(() => import('./pages/Replay'));
 const Privacy = lazy(() => import('./pages/Legal').then((m) => ({ default: m.Privacy })));
 const Terms = lazy(() => import('./pages/Legal').then((m) => ({ default: m.Terms })));
 const NotFound = lazy(() => import('./pages/NotFound'));
+const Login = lazy(() => import('./pages/customer/Auth').then((m) => ({ default: m.Login })));
+const Signup = lazy(() => import('./pages/customer/Auth').then((m) => ({ default: m.Signup })));
+const CustomerDashboard = lazy(() => import('./pages/customer/CustomerDashboard'));
+const SendMoney = lazy(() => import('./pages/customer/SendMoney'));
+const CustomerTransaction = lazy(() => import('./pages/customer/CustomerTransaction'));
 
 const TITLES: [RegExp, string][] = [
   [/^\/$/, 'Fraud analyst console'],
@@ -33,6 +39,12 @@ const TITLES: [RegExp, string][] = [
   [/^\/replay/, 'Case replay'],
   [/^\/privacy/, 'Privacy Policy'],
   [/^\/terms/, 'Terms of Use'],
+  [/^\/login/, 'Log in'],
+  [/^\/signup/, 'Create an account'],
+  [/^\/app\/dashboard/, 'Your accounts'],
+  [/^\/app\/send\/.+/, 'Transfer result'],
+  [/^\/app\/send/, 'Send money'],
+  [/^\/app\/transactions\/.+/, 'Transaction'],
 ];
 
 function Page({ children }: { children: React.ReactNode }) {
@@ -71,6 +83,14 @@ const router = createBrowserRouter([
       { path: '/replay/:transaction_ref', element: <Page><Replay /></Page> },
       { path: '/privacy', element: <Page><Privacy /></Page> },
       { path: '/terms', element: <Page><Terms /></Page> },
+      { path: '/login', element: <Page><Login /></Page> },
+      { path: '/signup', element: <Page><Signup /></Page> },
+      { path: '/app', element: <Navigate to="/app/dashboard" replace /> },
+      { path: '/app/dashboard', element: <RequireCustomer><Page><CustomerDashboard /></Page></RequireCustomer> },
+      { path: '/app/send', element: <RequireCustomer><Page><SendMoney /></Page></RequireCustomer> },
+      { path: '/app/send/:transaction_ref', element: <RequireCustomer><Page><CustomerTransaction playback /></Page></RequireCustomer> },
+      { path: '/app/transactions/:transaction_ref', element: <RequireCustomer><Page><CustomerTransaction /></Page></RequireCustomer> },
+      { path: '/app/*', element: <RequireCustomer><Page><NotFound /></Page></RequireCustomer> },
       { path: '*', element: <Page><NotFound /></Page> },
     ],
   },
@@ -87,7 +107,9 @@ const router = createBrowserRouter([
 export default function App() {
   return (
     <SessionProvider>
-      <RouterProvider router={router} future={{ v7_startTransition: true }} />
+      <CustomerSessionProvider>
+        <RouterProvider router={router} future={{ v7_startTransition: true }} />
+      </CustomerSessionProvider>
     </SessionProvider>
   );
 }

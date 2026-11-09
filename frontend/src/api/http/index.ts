@@ -2,8 +2,8 @@
 // Endpoint shapes are documented in API_CONTRACT.md.
 
 import { ApiError } from '../types';
-import type { FraudApi, ListResponse, ApiErrorBody } from '../types';
-import type { AnomalyPattern, AuditTrail, DisputeLog } from '../../types/db';
+import type { FraudApi, ListResponse, ApiErrorBody, AuthResult } from '../types';
+import type { Account, AnomalyPattern, AuditTrail, DisputeLog, Transaction } from '../../types/db';
 
 const BASE = (import.meta.env.VITE_API_BASE_URL ?? '').replace(/\/$/, '');
 
@@ -57,6 +57,19 @@ function normDispute(d: DisputeLog): DisputeLog {
 function normAudit(a: AuditTrail): AuditTrail {
   return { ...a, audit_id: String(a.audit_id), customer_id: a.customer_id == null ? null : String(a.customer_id), risk_score: a.risk_score == null ? null : Number(a.risk_score) };
 }
+function normTransaction(t: Transaction): Transaction {
+  return { ...t, sender_account_id: String(t.sender_account_id), receiver_account_id: String(t.receiver_account_id), amount: Number(t.amount) };
+}
+function normAuth(r: AuthResult): AuthResult {
+  return {
+    customer: { ...r.customer, customer_id: String(r.customer.customer_id) },
+    accounts: r.accounts.map((a: Account) => ({ ...a, account_id: String(a.account_id), customer_id: String(a.customer_id), account_number: String(a.account_number), balance: Number(a.balance) })),
+  };
+}
+
+/** How often the live adapter checks for changes. The API has no push channel yet (see API_CONTRACT.md). */
+const POLL_MS = 10000;
+
 function mapList<T>(r: ListResponse<T>, f: (x: T) => T): ListResponse<T> {
   return { ...r, data: r.data.map(f) };
 }
@@ -85,5 +98,33 @@ export const httpApi: FraudApi = {
   listAudit: async (q) => mapList(await request<ListResponse<AuditTrail>>('GET', `/audit${qs(q)}`), normAudit),
   createAudit: async (input) => normAudit((await request<{ data: AuditTrail }>('POST', '/audit', input)).data),
   getSummary: async (q) => (await request<{ data: Awaited<ReturnType<FraudApi['getSummary']>> }>('GET', `/stats/summary${qs(q)}`)).data,
+  login: async (input) => normAuth((await request<{ data: AuthResult }>('POST', '/auth/login', input)).data),
+  signup: async (input) => normAuth((await request<{ data: AuthResult }>('POST', '/auth/signup', input)).data),
+  createTransaction: async (input) => normTransaction((await request<{ data: Transaction }>('POST', '/transactions', input)).data),
+  updateTransaction: async (ref, patch) => normTransaction((await request<{ data: Transaction }>('PATCH', `/transactions/${enc(ref)}`, patch)).data),
+  createAnomaly: async (input) => normAnomaly((await request<{ data: AnomalyPattern }>('POST', '/anomalies', input)).data),
+
+  // Polls the table counts and the latest audit timestamp, and fires only when they change.
+  subscribe: (onChange) => {
+    let last = '';
+    let stopped = false;
+    const check = async () => {
+      try {
+        const s = (await request<{ data: Awaited<ReturnType<FraudApi['getSummary']>> }>('GET', '/stats/summary')).data;
+        const sig = JSON.stringify([s.tables, s.audit.last_timestamp, s.anomalies.open, s.disputes.open]);
+        if (last && sig !== last && !stopped) onChange();
+        last = sig;
+      } catch {
+        /* the next poll tries again */
+      }
+    };
+    check();
+    const id = setInterval(check, POLL_MS);
+    return () => {
+      stopped = true;
+      clearInterval(id);
+    };
+  },
+
   resetData: () => Promise.reject(new ApiError('NOT_SUPPORTED', 'Resetting data is only available when the console runs on the local JSON seed.')),
 };

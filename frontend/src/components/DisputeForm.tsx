@@ -18,10 +18,27 @@ interface Errors {
   currency?: string;
 }
 
-export function DisputeForm({ initialRef = '', initialCustomer = '', onDone, onCancel }: { initialRef?: string; initialCustomer?: string; onDone: (d: DisputeLog) => void; onCancel: () => void }) {
-  const { analyst, toast, bump } = useSession();
+export function DisputeForm({
+  initialRef = '',
+  initialCustomer = '',
+  lockedCustomer,
+  performedBy,
+  onDone,
+  onCancel,
+}: {
+  initialRef?: string;
+  initialCustomer?: string;
+  /** Customer view: the filing customer is fixed to the signed-in customer and the picker is hidden. */
+  lockedCustomer?: { customer_id: string; customer_name: string };
+  /** performed_by for the Audit_Trail row. Defaults to the acting analyst. */
+  performedBy?: string;
+  onDone: (d: DisputeLog) => void;
+  onCancel: () => void;
+}) {
+  const { analyst: actingAnalyst, toast, bump } = useSession();
+  const analyst = performedBy ?? actingAnalyst;
   const [ref, setRef] = useState(initialRef);
-  const [customer, setCustomer] = useState(initialCustomer);
+  const [customer, setCustomer] = useState(lockedCustomer?.customer_id ?? initialCustomer);
   const [type, setType] = useState<DisputeType | ''>('');
   const [reason, setReason] = useState('');
   const [amount, setAmount] = useState('');
@@ -30,7 +47,7 @@ export function DisputeForm({ initialRef = '', initialCustomer = '', onDone, onC
   const [tx, setTx] = useState<TransactionDetail | null>(null);
   const [checking, setChecking] = useState(false);
   const [saving, setSaving] = useState(false);
-  const customers = useAsync(() => api.listCustomers({ page_size: 500, sort: 'customer_name' }), []);
+  const customers = useAsync(() => (lockedCustomer ? Promise.resolve(null) : api.listCustomers({ page_size: 500, sort: 'customer_name' })), [lockedCustomer?.customer_id]);
   const currencies = useAsync(() => api.getSummary().then((s) => s.currencies), []);
 
   const lookup = async (value: string): Promise<TransactionDetail | null> => {
@@ -70,6 +87,8 @@ export function DisputeForm({ initialRef = '', initialCustomer = '', onDone, onC
     if (!ref.trim()) e.transaction_ref = 'Enter a transaction_ref.';
     else if (!d) e.transaction_ref = errors.transaction_ref ?? `No transaction with transaction_ref ${ref.trim().toUpperCase()}.`;
     else if (ref.trim().length > 20) e.transaction_ref = 'transaction_ref holds at most 20 characters.';
+    else if (lockedCustomer && d.sender_customer?.customer_id !== lockedCustomer.customer_id && d.receiver_customer?.customer_id !== lockedCustomer.customer_id)
+      e.transaction_ref = 'You can only dispute your own transactions.';
     if (!customer) e.customer_id = 'Choose the customer filing the dispute.';
     if (!type) e.dispute_type = 'Choose a dispute type.';
     if (!reason.trim()) e.dispute_reason = 'Describe the reason.';
@@ -100,7 +119,7 @@ export function DisputeForm({ initialRef = '', initialCustomer = '', onDone, onC
         analyst,
       );
       bump();
-      toast(`Dispute ${created.dispute_id} filed. Audit_Trail entry written by ${analyst}.`);
+      toast(lockedCustomer ? `Dispute ${created.dispute_id} filed. An analyst will review it.` : `Dispute ${created.dispute_id} filed. Audit_Trail entry written by ${analyst}.`);
       onDone(created);
     } catch (err) {
       toast((err as Error).message, 'error');
@@ -144,6 +163,15 @@ export function DisputeForm({ initialRef = '', initialCustomer = '', onDone, onC
           )}
         </span>
       </label>
+      {lockedCustomer ? (
+        <div className="field">
+          <span>Filed by</span>
+          <span className="input input-static">
+            {lockedCustomer.customer_name} <span className="mono muted">({lockedCustomer.customer_id})</span>
+          </span>
+          {tx && !parties.has(lockedCustomer.customer_id) && <span className="field-error">This transaction is not one of yours.</span>}
+        </div>
+      ) : (
       <label className="field">
         <span>Customer</span>
         <Select
@@ -158,6 +186,7 @@ export function DisputeForm({ initialRef = '', initialCustomer = '', onDone, onC
         {err('customer_id')}
         {customer && tx && !parties.has(customer) && <span className="field-hint">This customer is neither the sender nor the receiver of the transaction.</span>}
       </label>
+      )}
       <label className="field">
         <span>Dispute type</span>
         <Select

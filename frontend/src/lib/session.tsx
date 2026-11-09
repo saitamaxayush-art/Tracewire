@@ -1,9 +1,15 @@
-// Analyst session: who is acting (performed_by in mock mode) and a toast channel.
+// Analyst session: who is acting (performed_by in mock mode), a toast channel,
+// and a version counter that bumps whenever the shared store changes.
 
 import { createContext, useCallback, useContext, useEffect, useMemo, useState, type ReactNode } from 'react';
+import { api } from '../api';
 
-export const ANALYSTS = ['Analyst01', 'Analyst02', 'Analyst03', 'Analyst04'] as const;
+export const ANALYSTS = ['Analyst01', 'Analyst02'] as const;
 export type Analyst = (typeof ANALYSTS)[number];
+/** performed_by and reviewed_by for automated actions, matching the SQL default of Anomaly_Patterns.reviewed_by. */
+export const SYSTEM_ACTOR = 'System';
+/** Options offered when assigning a reviewer. */
+export const REVIEWERS = [...ANALYSTS, SYSTEM_ACTOR] as const;
 
 const KEY = 'tracewire.analyst';
 
@@ -55,6 +61,20 @@ export function SessionProvider({ children }: { children: ReactNode }) {
   }, []);
 
   const bump = useCallback(() => setVersion((v) => v + 1), []);
+
+  // Live sync: any write to the store, from this tab or another, bumps version once.
+  // Several writes in a row (transaction, anomaly, audit) are coalesced into one refetch.
+  useEffect(() => {
+    let timer: ReturnType<typeof setTimeout> | undefined;
+    const off = api.subscribe(() => {
+      clearTimeout(timer);
+      timer = setTimeout(() => setVersion((v) => v + 1), 60);
+    });
+    return () => {
+      clearTimeout(timer);
+      off();
+    };
+  }, []);
 
   const value = useMemo(() => ({ analyst, setAnalyst, toast, version, bump }), [analyst, setAnalyst, toast, version, bump]);
 

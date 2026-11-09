@@ -64,6 +64,11 @@ The **client** writes the audit entry for every analyst action by calling `POST 
 | `GET /audit` | Audit_Trail | none |
 | `POST /audit` | none | Audit_Trail: every column except `audit_id` (AUTO_INCREMENT) |
 | `GET /stats/summary` | All six tables | none |
+| `POST /auth/login` | Customers, Accounts | none |
+| `POST /auth/signup` | Customers, Accounts (uniqueness) | Customers: every column; Accounts: every column |
+| `POST /transactions` | Accounts (FKs, balance) | Transactions: every column; Accounts: `balance` when `status` is `Success` |
+| `PATCH /transactions/:transaction_ref` | Transactions, Accounts | Transactions: `status`; Accounts: `balance` when it moves to `Success` |
+| `POST /anomalies` | Transactions, Customers (FKs) | Anomaly_Patterns: every column except `anomaly_id` (AUTO_INCREMENT) |
 
 ---
 
@@ -296,7 +301,7 @@ Assign reviewer:
 
 ```http
 PATCH /anomalies/3
-{ "reviewed_by": "Analyst03" }
+{ "reviewed_by": "Analyst02" }
 ```
 
 Response: `{ "data": <full updated row> }`
@@ -393,6 +398,10 @@ Response `201`: `{ "data": <new row with audit_id> }`
 
 `action_type` values the console writes: `Anomaly Resolved`, `Anomaly Reopened`, `Action Changed`, `Reviewer Assigned`, `Dispute Filed`, `Dispute Status Changed`, `PII Revealed`.
 
+The customer view also writes: `Customer Registered`, `Transaction Approved`, `Transaction Flagged`, `2FA Requested`, `Transaction Blocked`, `2FA Authentication Passed`, `2FA Not Completed`.
+
+`performed_by` values: `Analyst01` or `Analyst02` for analyst actions, `System` for automated scoring results (matching the SQL default of `Anomaly_Patterns.reviewed_by`), and `Customer <customer_id>` for actions a customer takes, such as filing a dispute.
+
 ## Stats
 
 ### `GET /stats/summary`
@@ -438,3 +447,129 @@ SELECT currency, SUM(amount) AS total, COUNT(*) AS count FROM Transactions WHERE
 SELECT rule_code AS `key`, COUNT(*) AS count FROM Anomaly_Patterns GROUP BY rule_code;
 SELECT ROUND(AVG(risk_score), 2) FROM Anomaly_Patterns;
 ```
+
+
+---
+
+## Customer view
+
+The customer half of the app (`/login`, `/signup`, `/app/*`) uses the endpoints below, plus the existing `GET /customers/:customer_id`, `GET /accounts`, `GET /transactions/:transaction_ref`, `POST /disputes`, `PATCH /anomalies/:anomaly_id` and `POST /audit`. The client-side flows live in `src/api/customer.ts`.
+
+### Sessions
+
+The front end has no real authentication. In mock mode, login accepts any non-empty password and keeps `{ customer_id, customer_name, preferred_currency }` in localStorage under `tracewire.customer.session`, separate from the analyst name (`tracewire.analyst`). The live API should verify a password hash and return a session. If it returns a token, add it to `request()` in `src/api/http/index.ts`. Customer endpoints must then scope reads to the signed-in customer.
+
+### `POST /auth/login`
+
+```http
+POST /auth/login
+{ "email": "aarav.sharma@email.com", "password": "..." }
+```
+
+Response `200`: `{ "data": { "customer": <Customers row>, "accounts": [<Accounts row>, ...] } }`. An unknown email returns `404 NOT_FOUND`. A wrong password should return `401 UNAUTHORIZED`.
+
+### `POST /auth/signup`
+
+```http
+POST /auth/signup
+{
+  "customer_name": "Zoe Fernandes",
+  "email": "zoe.fernandes@email.com",
+  "phone_number": "+91-9822001122",
+  "country": "India",
+  "nationality": "Indian",
+  "preferred_currency": "INR",
+  "account_type": "Savings Account",
+  "opening_balance": 50000,
+  "password": "..."
+}
+```
+
+The server creates one Customers row and one linked Accounts row in a single transaction:
+
+| Column | Value |
+| --- | --- |
+| `customer_id` | next BIGINT (the mock uses `MAX(customer_id) + 1`) |
+| `customer_status` | `Active Status` |
+| `registration_date` | today |
+| `account_id` | next BIGINT (`MAX(account_id) + 1`) |
+| `account_number` | next BIGINT (`MAX(account_number) + 1`), UNIQUE |
+| `balance` | `opening_balance`, DECIMAL(18,2) |
+| `currency` | `preferred_currency` |
+| `status` | `Active Status` |
+| `ifsc_code` | `NULL` (no branch is chosen at signup) |
+
+Validation: the column lengths from the schema, a valid email that is not already registered (`422 VALIDATION_ERROR`), `account_type` in the ENUM, and `opening_balance >= 0`. Response `201`: same shape as login.
+
+### `POST /transactions`
+
+```http
+POST /transactions
+{
+  "sender_account_id": "4019283741",
+  "receiver_account_id": "7821039482",
+  "transaction_type": "Transfer Transaction",
+  "amount": 200000,
+  "currency": "INR",
+  "sender_location": "India",
+  "sender_latitude": null,
+  "sender_longitude": null,
+  "status": "Blocked",
+  "created_at": "2026-11-09 10:51:49"
+}
+```
+
+- The server assigns `transaction_ref` as the next value after the highest existing one, keeping its prefix and width. After `UTR260801000050` comes `UTR260801000051`.
+- When `status` is `Success` and `currency` equals the sender account currency, the server debits `amount` from the sender `balance` in the same transaction. It rejects the debit with `422` if the amount is above the balance.
+- No exchange rates are stored, so a transfer in another currency is never debited. The receiver is not credited.
+- Validation: both accounts exist and differ, `amount > 0`, and the ENUM values are valid.
+
+Response `201`: `{ "data": <new Transactions row> }`. Today the client sends `status` as decided by `evaluateTransaction`. Once the backend scores transfers itself (see below), it should ignore that field and return its own decision.
+
+### `PATCH /transactions/:transaction_ref`
+
+```http
+PATCH /transactions/UTR260801000053
+{ "status": "Success" }
+```
+
+This is used after a customer confirms a one-time code. Moving from a non-Success status to `Success` debits the sender once, under the same rules as above. Response `200`: `{ "data": <row> }`.
+
+### `POST /anomalies`
+
+The body is every Anomaly_Patterns column except `anomaly_id`. The scoring step sends `reviewed_by: "System"`, `is_resolved: false`, `resolution_notes: null` and `resolved_at: null`, with `detected_at` equal to the transaction's `created_at`. Validation: the FKs exist, `rule_code` is 1 to 50 characters, `flag_reason` is 1 to 255, `risk_score` is between 0 and 100, and the ENUM values are valid. Response `201`: `{ "data": <row> }`.
+
+### Write order for one transfer
+
+1. Score the transfer with `evaluateTransaction` (`src/lib/scoring.ts`).
+2. `POST /transactions` with the resulting `status`.
+3. If a threshold was crossed, `POST /anomalies`.
+4. `POST /audit` with `performed_by: "System"`. Every transfer gets exactly one row, the same as each seed transaction. The customer's optional note goes into this row's `action_description`, because Transactions has no note column.
+
+For one-time code verification, the client calls `PATCH /transactions/:ref` with `{ "status": "Success" }`, then `PATCH /anomalies/:id` with `is_resolved: true, action_taken: "Allow"`, then `POST /audit` (`2FA Authentication Passed`).
+
+### Scoring inputs: what `evaluateTransaction` reads
+
+The function is pure: `evaluateTransaction(draft, context) -> Evaluation`. A backend engine can replace it if it reads the same fields and returns the same outcome mapping. Every weight and threshold is in the `SCORING` constant.
+
+| Signal | Fields read | Trips when | Points | rule_code |
+| --- | --- | --- | --- | --- |
+| Velocity | Transactions `created_at` where `sender_account_id` is the sender, compared with the new `created_at` | 2 or more in the last 60 minutes | 10 each, max 30 | `VEL_HOURLY_BURST` |
+| Amount deviation | `amount` and `currency` of the sender's past transfers | amount is at least 2 times the average in the same currency | 10, plus 5 per extra multiple, max 30 | `AMT_ABOVE_AVERAGE` |
+| Geography | `transaction_type`; Customers `country` of the sender and of the receiver account's owner | External Transfer Transaction, or the countries differ | 15 external plus 20 cross-border, max 30 | `GEO_CROSS_BORDER` or `GEO_EXTERNAL_TRANSFER` |
+| Balance impact | Accounts `balance` and `currency` of the sender | amount is at least 50% of the balance (same currency only) | 15, plus 50 per extra share, max 40 | `BEH_BALANCE_DRAIN` |
+| Currency | `currency` against the sender account `currency` | they differ | 20 | `FX_CURRENCY_MISMATCH` |
+| AML | the geography and amount or balance results | cross-border and large at the same time | 10 | `AML_LARGE_CROSS_BORDER` |
+
+`risk_score` is the sum of the points, capped at 100. `rule_code` is the code of the highest-scoring signal, and `flag_reason` joins every reason, up to 255 characters. `severity_level` comes from the risk bands in `src/constants/enums.ts` (`RISK_BANDS`). The outcome:
+
+| risk_score | Transactions.status | Anomaly_Patterns.action_taken | Anomaly row written |
+| --- | --- | --- | --- |
+| below 40 (Medium) | `Success` | none | no |
+| 40 to below 60 (High) | `Flagged` | `Flag_For_Review` | yes |
+| 60 to below 80 (Critical) | `Flagged` | `Require_2FA` | yes |
+| 80 and above | `Blocked` | `Block_Temporary` | yes |
+
+### Live updates
+
+Every open view refetches when the data changes, through `FraudApi.subscribe`. The mock adapter notifies listeners after each write, and other tabs hear the write through the browser `storage` event. The HTTP adapter polls `GET /stats/summary` every 10 seconds and refetches when the table counts, open counts or the last audit timestamp change. A push channel such as `GET /events` (Server-Sent Events) can replace the poll later, without any component changes.

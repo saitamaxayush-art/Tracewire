@@ -1,10 +1,11 @@
 import { useEffect, useRef, useState } from 'react';
 import { Link, NavLink, useLocation, useNavigate } from 'react-router-dom';
-import { ChevronDown, Menu, Search, UserRound, X } from 'lucide-react';
+import { ChevronDown, LogOut, Menu, Search, UserRound, X } from 'lucide-react';
 import { Logo } from './Logo';
 import { brand } from '../../config/brand';
 import { ANALYSTS, useSession, type Analyst } from '../../lib/session';
 import { USE_MOCK } from '../../api';
+import { lastPath, roleOf, useCustomerSession } from '../../lib/customerSession';
 
 export const PRIMARY_LINKS = [
   { to: '/dashboard', label: 'Dashboard' },
@@ -23,6 +24,58 @@ export const CONSOLE_LINKS = [
   { to: '/risk', label: 'Risk breakdown', hint: 'Shares by dimension' },
   { to: '/replay', label: 'Case replay', hint: 'Play a case back' },
 ];
+
+export const CUSTOMER_LINKS = [
+  { to: '/app/dashboard', label: 'Dashboard' },
+  { to: '/app/send', label: 'Send money' },
+];
+
+/** Switches between the two halves of the app. Each side keeps its own session and last page. */
+function RoleSwitch() {
+  const loc = useLocation();
+  const navigate = useNavigate();
+  const role = roleOf(loc.pathname);
+  return (
+    <div className="role-switch" role="group" aria-label="Switch view">
+      <button type="button" aria-pressed={role === 'customer'} onClick={() => role !== 'customer' && navigate(lastPath('customer'))}>
+        Customer view
+      </button>
+      <button type="button" aria-pressed={role === 'analyst'} onClick={() => role !== 'analyst' && navigate(lastPath('analyst'))}>
+        Analyst console
+      </button>
+    </div>
+  );
+}
+
+function CustomerTools() {
+  const { session, signOut } = useCustomerSession();
+  const navigate = useNavigate();
+  if (!session) {
+    return (
+      <Link to="/login" className="btn btn-brand btn-sm nav-cta">
+        Log in
+      </Link>
+    );
+  }
+  return (
+    <>
+      <span className="nav-who" title={`Signed in as customer ${session.customer_id}`}>
+        <UserRound size={14} aria-hidden="true" />
+        {session.customer_name}
+      </span>
+      <button
+        type="button"
+        className="btn btn-ghost btn-sm"
+        onClick={() => {
+          navigate('/');
+          signOut();
+        }}
+      >
+        <LogOut size={14} aria-hidden="true" /> Log out
+      </button>
+    </>
+  );
+}
 
 function AnalystSwitcher({ compact }: { compact?: boolean }) {
   const { analyst, setAnalyst } = useSession();
@@ -111,6 +164,10 @@ export function Nav({ onSearch }: { onSearch: () => void }) {
   }, [mobileOpen]);
 
   const isMac = typeof navigator !== 'undefined' && /Mac|iPhone|iPad/.test(navigator.platform);
+  const customerSide = roleOf(loc.pathname) === 'customer';
+  const { session } = useCustomerSession();
+  const primary = customerSide ? (session ? CUSTOMER_LINKS : []) : PRIMARY_LINKS;
+  const menuLinks = customerSide ? (session ? CUSTOMER_LINKS : [{ to: '/login', label: 'Log in' }, { to: '/signup', label: 'Sign up' }]) : CONSOLE_LINKS;
 
   return (
     <header className="nav-shell">
@@ -119,18 +176,25 @@ export function Nav({ onSearch }: { onSearch: () => void }) {
           <Logo />
         </Link>
         <ul className="nav-links">
-          {PRIMARY_LINKS.map((l) => (
+          {primary.map((l) => (
             <li key={l.to}>
               <NavLink to={l.to}>{l.label}</NavLink>
             </li>
           ))}
         </ul>
         <div className="nav-tools">
-          <button type="button" className="nav-icon" onClick={onSearch} aria-label={`Search (${isMac ? 'Command' : 'Control'} K)`} title={`Search, ${isMac ? 'Cmd' : 'Ctrl'}+K`}>
-            <Search size={16} aria-hidden="true" />
-          </button>
-          <AnalystSwitcher compact />
-          <ConsoleMenu />
+          <RoleSwitch />
+          {customerSide ? (
+            <CustomerTools />
+          ) : (
+            <>
+              <button type="button" className="nav-icon" onClick={onSearch} aria-label={`Search (${isMac ? 'Command' : 'Control'} K)`} title={`Search, ${isMac ? 'Cmd' : 'Ctrl'}+K`}>
+                <Search size={16} aria-hidden="true" />
+              </button>
+              <AnalystSwitcher compact />
+              <ConsoleMenu />
+            </>
+          )}
         </div>
         <button type="button" className="nav-burger" aria-expanded={mobileOpen} aria-controls="mobile-menu" onClick={() => setMobileOpen((o) => !o)}>
           {mobileOpen ? <X size={18} aria-hidden="true" /> : <Menu size={18} aria-hidden="true" />}
@@ -139,8 +203,9 @@ export function Nav({ onSearch }: { onSearch: () => void }) {
       </nav>
       {mobileOpen && (
         <div className="mobile-menu" id="mobile-menu">
+          <RoleSwitch />
           <ul>
-            {CONSOLE_LINKS.map((l) => (
+            {menuLinks.map((l) => (
               <li key={l.to}>
                 <NavLink to={l.to}>
                   <span className="sq" aria-hidden="true" /> {l.label}
@@ -149,17 +214,23 @@ export function Nav({ onSearch }: { onSearch: () => void }) {
             ))}
           </ul>
           <div className="mobile-tools">
-            <button
-              type="button"
-              className="btn btn-ghost btn-sm"
-              onClick={() => {
-                setMobileOpen(false);
-                onSearch();
-              }}
-            >
-              <Search size={14} aria-hidden="true" /> Search
-            </button>
-            <AnalystSwitcher />
+            {customerSide ? (
+              <CustomerTools />
+            ) : (
+              <>
+                <button
+                  type="button"
+                  className="btn btn-ghost btn-sm"
+                  onClick={() => {
+                    setMobileOpen(false);
+                    onSearch();
+                  }}
+                >
+                  <Search size={14} aria-hidden="true" /> Search
+                </button>
+                <AnalystSwitcher />
+              </>
+            )}
           </div>
         </div>
       )}

@@ -4,7 +4,7 @@ import { CheckCircle2, PlayCircle, RotateCcw, UserPlus } from 'lucide-react';
 import { ACTION_TAKEN, ACTION_TAKEN_LABEL, type ActionTaken } from '../constants/enums';
 import { familyInfo, ruleFamily } from '../constants/ruleFamilies';
 import { assignReviewer, changeAnomalyAction, reopenAnomaly, resolveAnomaly } from '../api/actions';
-import { ANALYSTS, useSession } from '../lib/session';
+import { REVIEWERS, useSession } from '../lib/session';
 import type { AnomalyPattern } from '../types/db';
 import { ActionChip, DateTime, Drawer, Id, Money, ResolvedChip, SeverityChip, Select, Dash } from './ui';
 import { RiskGauge } from './charts/RiskGauge';
@@ -218,7 +218,7 @@ export function AnomalyDrawer({ anomaly, onClose, onChanged }: { anomaly: Anomal
               maxLength={100}
             />
             <datalist id="reviewer-options">
-              {ANALYSTS.map((x) => (
+              {REVIEWERS.map((x) => (
                 <option key={x} value={x} />
               ))}
             </datalist>

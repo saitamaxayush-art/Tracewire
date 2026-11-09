@@ -18,7 +18,7 @@
   transform: translateX(-50%);
   top: 12px;
   z-index: 200;
-  width: min(700px, calc(100vw - 24px));
+  width: min(980px, calc(100vw - 24px));
 }
 .nav {
   height: var(--nav-h);
@@ -177,6 +177,63 @@
   border-top: 1px solid var(--line);
   margin-top: 6px;
   flex-wrap: wrap;
+}
+/* Role switch: two joined buttons, square corners inside, 6px outside. */
+.role-switch {
+  display: inline-flex;
+  border: 1px solid var(--line);
+  border-radius: var(--r-btn);
+  overflow: hidden;
+  flex: none;
+}
+.role-switch button {
+  height: 32px;
+  padding: 0 10px;
+  background: transparent;
+  border: 0;
+  color: var(--muted);
+  font-size: 12.5px;
+  font-weight: 500;
+  cursor: pointer;
+  white-space: nowrap;
+}
+.role-switch button + button {
+  border-left: 1px solid var(--line);
+}
+.role-switch button:hover {
+  color: var(--paper);
+}
+.role-switch button[aria-pressed='true'] {
+  background: var(--paper);
+  color: var(--ink);
+}
+.role-switch button:focus-visible {
+  outline-offset: -2px;
+}
+.nav-who {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  font-size: 13px;
+  color: var(--paper);
+  max-width: 160px;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+.mobile-menu .role-switch {
+  display: flex;
+  margin: 4px 4px 8px;
+}
+.mobile-menu .role-switch button {
+  flex: 1;
+  height: 40px;
+  font-size: 14px;
+}
+@media (max-width: 1080px) {
+  .nav-links {
+    display: none;
+  }
 }
 @media (max-width: 760px) {
   .nav-links,

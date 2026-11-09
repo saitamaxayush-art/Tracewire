@@ -71,6 +71,32 @@ export function useSceneClock<T extends Element = SVGSVGElement>(duration: numbe
   return { ref, t: reduced ? duration : state.t, loop: reduced ? 0 : state.loop, reduced };
 }
 
+/**
+ * One-shot timeline: runs from 0 to `duration` once and stops on the last frame.
+ * Under reduced motion, or after skip(), it is at the last frame straight away.
+ */
+export function usePlayOnce(duration: number, ready = true) {
+  const reduced = useReducedMotion();
+  const [t, setT] = useState(0);
+  const [skipped, setSkipped] = useState(false);
+  useEffect(() => {
+    if (reduced || !ready || skipped) return;
+    let raf = 0;
+    let last = 0;
+    let acc = 0;
+    const tick = (now: number) => {
+      acc += last ? Math.min(64, now - last) : 16;
+      last = now;
+      setT(Math.min(duration, acc));
+      if (acc < duration) raf = requestAnimationFrame(tick);
+    };
+    raf = requestAnimationFrame(tick);
+    return () => cancelAnimationFrame(raf);
+  }, [duration, reduced, ready, skipped]);
+  const at = reduced || skipped ? duration : t;
+  return { t: at, done: at >= duration, reduced, skip: () => setSkipped(true) };
+}
+
 // ---------- Timeline maths ----------
 
 export const clamp01 = (v: number) => (v < 0 ? 0 : v > 1 ? 1 : v);

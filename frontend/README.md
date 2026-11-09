@@ -77,6 +77,9 @@ src/api/index.ts                 picks the adapter from VITE_USE_MOCK
 src/api/mock/                    seed JSON and in-memory query engine
 src/api/http/                    fetch adapter
 src/api/actions.ts               analyst actions plus their Audit_Trail entries
+src/api/customer.ts              customer signup, send money, 2FA, plus their Audit_Trail entries
+src/lib/scoring.ts               evaluateTransaction and the SCORING thresholds
+src/lib/customerSession.tsx      mock customer session, /app guard, role switch memory
 src/pages/                       routes
 src/components/                  layout, drawers, charts, isometric SVG
 ```
@@ -95,8 +98,15 @@ src/components/                  layout, drawers, charts, isometric SVG
 | `/risk` | Donut and list of shares by severity, action, transaction status or dispute status |
 | `/replay`, `/replay/:transaction_ref` | Case replay: merged timeline, risk gauge, dot-grid map |
 | `/privacy`, `/terms` | Legal pages |
+| `/login`, `/signup` | Customer view: demo sign-in (any password) and signup, which creates a Customers row and an Accounts row |
+| `/app/dashboard` | Customer accounts, last 8 transactions, open items and live flag notices |
+| `/app/send` | Send money. Each transfer is scored by `evaluateTransaction` (`src/lib/scoring.ts`) before it is written |
+| `/app/send/:transaction_ref` | Transfer result: plays the transfer through the rule check once, then shows success, the one-time code step, or the stopped state with a dispute button |
+| `/app/transactions/:transaction_ref` | One of the customer's own transactions |
 
-Filters live in the query string, so every filtered view can be shared as a link. Press Cmd+K or Ctrl+K anywhere to search customers, emails, account numbers, transaction refs and rule codes. The analyst picker in the nav sets `performed_by` for new audit entries.
+The nav has a **Customer view / Analyst console** switch. The two sessions are stored separately (`tracewire.customer.session` and `tracewire.analyst`), so switching back and forth keeps both, and each side returns to its last page. Transfers, alerts and audit rows created on the customer side go into the same store, and the analyst console refetches as soon as they are written, including in another tab.
+
+Filters live in the query string, so every filtered view can be shared as a link. Press Cmd+K or Ctrl+K anywhere to search customers, emails, account numbers, transaction refs and rule codes. The analyst picker in the nav (Analyst01 or Analyst02) sets `performed_by` for new audit entries. Automated scoring writes as `System`.
 
 ## A note on rule families
 

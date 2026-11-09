@@ -108,7 +108,7 @@ export function Privacy() {
           <p>The console keeps a small amount of information in your own browser, and nowhere else:</p>
           <ul>
             <li>
-              <strong>Display preferences.</strong> The analyst name you pick in the navigation (Analyst01 to Analyst04) is kept in local storage.
+              <strong>Display preferences.</strong> The analyst name you pick in the navigation (Analyst01 or Analyst02) is kept in local storage. When you use the customer view, the signed-in customer (customer_id, name and preferred currency) is kept there too, separately from the analyst name. Log out removes it.
             </li>
             <li>
               <strong>Local record changes.</strong> When the console runs on its local JSON seed, the changes you make (resolving alerts, filing disputes, new audit entries) are saved in local storage so they

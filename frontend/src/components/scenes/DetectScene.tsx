@@ -1,4 +1,5 @@
 import { useEffect } from 'react';
+import type { AnomalyPattern } from '../../types/db';
 import { getCleanExample, getFlaggedExample, type TransferExample } from '../../api/selectors';
 import { useAsync } from '../../lib/hooks';
 import { RISK_BANDS, SEVERITY_TOKEN, STATUS_TOKEN, label } from '../../constants/enums';
@@ -15,7 +16,17 @@ function bandColor(score: number) {
   return SEVERITY_TOKEN[b.level];
 }
 
-function Frame({ ex, cycle, t, still }: { ex: TransferExample; cycle: DetectCycle; t: number; still: boolean }) {
+/** Fields of an Anomaly_Patterns row the frame draws. A clean transfer can pass a display-only stand-in. */
+export type FrameAnomaly = Pick<AnomalyPattern, 'risk_score' | 'rule_code' | 'flag_reason' | 'flagged_amount' | 'currency' | 'severity_level' | 'action_taken'>;
+export interface FrameExample {
+  detail: TransferExample['detail'];
+  anomaly: FrameAnomaly;
+}
+
+/** Duration of one pass of the frame, used by the home loop and by the one-shot playback. */
+export const DETECT_DURATION = D;
+
+export function DetectFrame({ ex, cycle, t, still, note = 'Transfer stopped before reaching the receiver.' }: { ex: FrameExample; cycle: DetectCycle; t: number; still: boolean; note?: string }) {
   const { detail, anomaly } = ex;
   const tx = detail.transaction;
   const flagged = cycle === 'flagged';
@@ -151,7 +162,7 @@ function Frame({ ex, cycle, t, still }: { ex: TransferExample; cycle: DetectCycl
             Action taken: <tspan fill="var(--paper)">{label(anomaly.action_taken)}</tspan>
           </text>
           <text x={10} y={54} fontSize={8.5} fill="var(--paper)" fontFamily={SANS}>
-            Transfer stopped before reaching the receiver.
+            {note}
           </text>
         </g>
       )}
@@ -183,7 +194,7 @@ export function DetectScene({ onCycle }: { onCycle?: (c: DetectCycle) => void })
       svgRef={clock.ref}
       label={`Transaction ${ex.detail.transaction.transaction_ref} passes the rule check with risk score ${formatScore(ex.anomaly.risk_score)} and ends ${ex.detail.transaction.status}.`}
     >
-      <Frame ex={ex} cycle={cycle} t={clock.t} still={clock.reduced} />
+      <DetectFrame ex={ex} cycle={cycle} t={clock.t} still={clock.reduced} />
     </SceneSvg>
   );
 }
