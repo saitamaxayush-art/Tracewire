@@ -3,10 +3,10 @@ import { Link } from 'react-router-dom';
 import { CheckCircle2, PlayCircle, RotateCcw, UserPlus } from 'lucide-react';
 import { ACTION_TAKEN, ACTION_TAKEN_LABEL, type ActionTaken } from '../constants/enums';
 import { familyInfo, ruleFamily } from '../constants/ruleFamilies';
-import { assignReviewer, changeAnomalyAction, reopenAnomaly, resolveAnomaly } from '../api/actions';
-import { REVIEWERS, useSession } from '../lib/session';
+import { assignReviewer, changeAnomalyAction, reopenAnomaly, resolveAnomaly, undoResolveAnomaly } from '../api/actions';
+import { REVIEWERS, useSession, type ToastOptions } from '../lib/session';
 import type { AnomalyPattern } from '../types/db';
-import { ActionChip, DateTime, Drawer, Id, Money, ResolvedChip, SeverityChip, Select, Dash } from './ui';
+import { ActionChip, Busy, ConfirmDialog, DateTime, Drawer, Id, Money, ResolvedChip, SeverityChip, Select, Dash } from './ui';
 import { RiskGauge } from './charts/RiskGauge';
 import { formatScore } from '../lib/format';
 
@@ -18,6 +18,8 @@ export function AnomalyDrawer({ anomaly, onClose, onChanged }: { anomaly: Anomal
   const [action, setAction] = useState<ActionTaken | ''>('');
   const [reviewer, setReviewer] = useState('');
   const [reviewerError, setReviewerError] = useState('');
+  const [confirmBlock, setConfirmBlock] = useState(false);
+  const [ack, setAck] = useState('');
 
   useEffect(() => {
     setNotes('');
@@ -25,20 +27,35 @@ export function AnomalyDrawer({ anomaly, onClose, onChanged }: { anomaly: Anomal
     setAction(anomaly?.action_taken ?? '');
     setReviewer('');
     setReviewerError('');
+    setConfirmBlock(false);
   }, [anomaly?.anomaly_id, anomaly?.action_taken]);
+  useEffect(() => setAck(''), [anomaly?.anomaly_id]);
 
-  const run = async (key: string, fn: () => Promise<AnomalyPattern>, ok: string) => {
+  // GOLDEN RULE 3: Offer informative feedback (each toast names the alert and transaction it changed)
+  const run = async (key: string, fn: () => Promise<AnomalyPattern>, ok: string, opts?: ToastOptions) => {
     setBusy(key);
     try {
       const updated = await fn();
       onChanged(updated);
       bump();
-      toast(`${ok} Audit_Trail entry written by ${analyst}.`);
+      toast(ok, 'ok', opts);
+      return true;
     } catch (e) {
       toast((e as Error).message, 'error');
+      return false;
     } finally {
       setBusy(null);
     }
+  };
+
+  // GOLDEN RULE 5: Error prevention and simple error handling (checked as the analyst types, not only on submit)
+  const notesProblem = (v: string) => (v.trim() ? '' : 'Resolution notes cannot be empty. Say what the review found.');
+  const reviewerProblem = (v: string, current: string) => {
+    const r = v.trim();
+    if (!r) return 'Pick or type a reviewer.';
+    if (r.length > 100) return `Reviewer name is ${r.length} characters. reviewed_by holds at most 100.`;
+    if (r === current) return `${r} is already the reviewer.`;
+    return '';
   };
 
   if (!anomaly) return <Drawer open={false} onClose={onClose} title="">{null}</Drawer>;
@@ -124,30 +141,71 @@ export function AnomalyDrawer({ anomaly, onClose, onChanged }: { anomaly: Anomal
           {a.is_resolved ? 'Reopen' : 'Mark resolved'}
         </h3>
         {a.is_resolved ? (
-          <button type="button" className="btn btn-ghost" disabled={busy !== null} onClick={() => run('reopen', () => reopenAnomaly(a, analyst), 'Alert reopened.')}>
-            <RotateCcw size={16} aria-hidden="true" /> {busy === 'reopen' ? 'Saving...' : 'Reopen alert'}
-          </button>
+          <>
+            {ack && (
+              // GOLDEN RULE 4: Design dialogs to yield closure (a settled acknowledgement before the panel closes)
+              <div className="notice notice-ok" role="status" data-rule="4">
+                <CheckCircle2 size={18} aria-hidden="true" />
+                <div className="notice-body">
+                  <strong>{ack}</strong>
+                  <span className="notice-reason">Audit_Trail entry written by {analyst}. Use Undo in the notice to reverse it.</span>
+                </div>
+                <button type="button" className="btn btn-white btn-sm" onClick={onClose}>
+                  Close panel
+                </button>
+              </div>
+            )}
+            <button
+              type="button"
+              className="btn btn-ghost"
+              disabled={busy !== null}
+              onClick={() => run('reopen', () => reopenAnomaly(a, analyst), `Alert ${a.anomaly_id} on ${a.transaction_ref} reopened.`)}
+            >
+              <Busy busy={busy === 'reopen'} label="Reopening...">
+                <RotateCcw size={16} aria-hidden="true" /> Reopen alert
+              </Busy>
+            </button>
+          </>
         ) : (
           <form
             className="stack"
-            onSubmit={(e) => {
+            onSubmit={async (e) => {
               e.preventDefault();
-              if (!notes.trim()) {
-                setNotesError('Resolution notes are required.');
-                return;
-              }
-              run('resolve', () => resolveAnomaly(a, notes, analyst), 'Alert marked resolved.');
+              const problem = notesProblem(notes);
+              setNotesError(problem);
+              if (problem) return;
+              const before = a;
+              const msg = `Alert ${a.anomaly_id} on ${a.transaction_ref} marked resolved.`;
+              const ok = await run('resolve', () => resolveAnomaly(a, notes, analyst), msg, {
+                // GOLDEN RULE 6: Permit easy reversal of actions
+                action: {
+                  label: 'Undo',
+                  run: async () => {
+                    try {
+                      await undoResolveAnomaly(before, analyst);
+                      bump();
+                      toast(`Undone: alert ${before.anomaly_id} on ${before.transaction_ref} is unresolved again. Reversal logged to Audit_Trail.`);
+                    } catch (err) {
+                      toast(`Undo failed: ${(err as Error).message}`, 'error');
+                    }
+                  },
+                },
+              });
+              if (ok) setAck(msg);
             }}
           >
             <label className="field">
               <span>Resolution notes (required)</span>
+              {/* GOLDEN RULE 5: Error prevention and simple error handling */}
               <textarea
                 className="textarea"
+                data-rule="5"
                 value={notes}
                 onChange={(e) => {
                   setNotes(e.target.value);
-                  if (e.target.value.trim()) setNotesError('');
+                  if (notesError) setNotesError(notesProblem(e.target.value));
                 }}
+                onBlur={() => setNotesError(notesProblem(notes))}
                 aria-invalid={Boolean(notesError)}
                 aria-describedby="notes-err"
                 maxLength={2000}
@@ -157,8 +215,10 @@ export function AnomalyDrawer({ anomaly, onClose, onChanged }: { anomaly: Anomal
                 {notesError}
               </span>
             </label>
-            <button type="submit" className="btn btn-brand" disabled={busy !== null}>
-              <CheckCircle2 size={16} aria-hidden="true" /> {busy === 'resolve' ? 'Saving...' : 'Mark resolved'}
+            <button type="submit" className="btn btn-brand" disabled={busy !== null || Boolean(notesProblem(notes))} data-rule="5">
+              <Busy busy={busy === 'resolve'} label="Resolving...">
+                <CheckCircle2 size={16} aria-hidden="true" /> Mark resolved
+              </Busy>
             </button>
           </form>
         )}
@@ -173,7 +233,10 @@ export function AnomalyDrawer({ anomaly, onClose, onChanged }: { anomaly: Anomal
           className="row-form"
           onSubmit={(e) => {
             e.preventDefault();
-            if (action && action !== a.action_taken) run('action', () => changeAnomalyAction(a, action, analyst), `Action set to ${ACTION_TAKEN_LABEL[action]}.`);
+            if (!action || action === a.action_taken) return;
+            // GOLDEN RULE 5: Error prevention and simple error handling (a permanent block asks first)
+            if (action === 'Block_Permanent') return setConfirmBlock(true);
+            run('action', () => changeAnomalyAction(a, action, analyst), `Alert ${a.anomaly_id} on ${a.transaction_ref}: action set to ${ACTION_TAKEN_LABEL[action]}.`);
           }}
         >
           <label className="field" style={{ flex: 1 }}>
@@ -181,9 +244,27 @@ export function AnomalyDrawer({ anomaly, onClose, onChanged }: { anomaly: Anomal
             <Select value={action} onChange={(e) => setAction(e.target.value as ActionTaken)} options={ACTION_TAKEN.map((v) => ({ value: v, label: ACTION_TAKEN_LABEL[v] }))} />
           </label>
           <button type="submit" className={`btn ${action === 'Block_Permanent' ? 'btn-danger' : 'btn-white'}`} disabled={busy !== null || !action || action === a.action_taken}>
-            {busy === 'action' ? 'Saving...' : 'Apply'}
+            <Busy busy={busy === 'action'} label="Applying...">
+              Apply
+            </Busy>
           </button>
         </form>
+        <ConfirmDialog
+          open={confirmBlock}
+          title="Block permanently?"
+          message={
+            <>
+              This permanently blocks <span className="mono">{a.transaction_ref}</span> for alert {a.anomaly_id}, and there is no Undo for it.
+            </>
+          }
+          confirmLabel="Block permanently"
+          busy={busy === 'action'}
+          onCancel={() => setConfirmBlock(false)}
+          onConfirm={async () => {
+            await run('action', () => changeAnomalyAction(a, 'Block_Permanent', analyst), `Alert ${a.anomaly_id} on ${a.transaction_ref}: action set to ${ACTION_TAKEN_LABEL.Block_Permanent}.`);
+            setConfirmBlock(false);
+          }}
+        />
       </section>
 
       <section aria-labelledby="act-assign">
@@ -196,10 +277,10 @@ export function AnomalyDrawer({ anomaly, onClose, onChanged }: { anomaly: Anomal
           onSubmit={(e) => {
             e.preventDefault();
             const r = reviewer.trim();
-            if (!r) return setReviewerError('Pick or type a reviewer.');
-            if (r.length > 100) return setReviewerError('reviewed_by holds at most 100 characters.');
-            if (r === a.reviewed_by) return setReviewerError(`${r} is already the reviewer.`);
-            run('assign', () => assignReviewer(a, r, analyst), `Assigned to ${r}.`);
+            const problem = reviewerProblem(r, a.reviewed_by);
+            setReviewerError(problem);
+            if (problem) return;
+            run('assign', () => assignReviewer(a, r, analyst), `Alert ${a.anomaly_id} on ${a.transaction_ref} assigned to ${r}.`);
           }}
         >
           <label className="field" style={{ flex: 1 }}>
@@ -210,8 +291,10 @@ export function AnomalyDrawer({ anomaly, onClose, onChanged }: { anomaly: Anomal
               value={reviewer}
               onChange={(e) => {
                 setReviewer(e.target.value);
-                setReviewerError('');
+                setReviewerError(e.target.value ? reviewerProblem(e.target.value, a.reviewed_by) : '');
               }}
+              onBlur={() => reviewer && setReviewerError(reviewerProblem(reviewer, a.reviewed_by))}
+              data-rule="5"
               placeholder={`Current: ${a.reviewed_by}`}
               aria-invalid={Boolean(reviewerError)}
               aria-describedby="rev-err"
@@ -223,11 +306,21 @@ export function AnomalyDrawer({ anomaly, onClose, onChanged }: { anomaly: Anomal
               ))}
             </datalist>
           </label>
-          <button type="button" className="btn btn-ghost" onClick={() => setReviewer(analyst)} title="Assign to yourself">
+          <button
+            type="button"
+            className="btn btn-ghost"
+            onClick={() => {
+              setReviewer(analyst);
+              setReviewerError(reviewerProblem(analyst, a.reviewed_by));
+            }}
+            title="Assign to yourself"
+          >
             Me
           </button>
-          <button type="submit" className="btn btn-white" disabled={busy !== null}>
-            <UserPlus size={16} aria-hidden="true" /> {busy === 'assign' ? 'Saving...' : 'Assign'}
+          <button type="submit" className="btn btn-white" disabled={busy !== null || Boolean(reviewerProblem(reviewer, a.reviewed_by))} data-rule="5">
+            <Busy busy={busy === 'assign'} label="Assigning...">
+              <UserPlus size={16} aria-hidden="true" /> Assign
+            </Busy>
           </button>
         </form>
         <span id="rev-err" className="field-error" role="alert">

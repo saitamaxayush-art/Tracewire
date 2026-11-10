@@ -9,7 +9,8 @@ import { alertItems, customerActor, readSeen, useCustomerSession, writeSeen } fr
 import { severityForScore, type Evaluation } from '../../lib/scoring';
 import { DISPUTE_CLOSED, label } from '../../constants/enums';
 import { formatMoney, formatScore, maskAccountNumber } from '../../lib/format';
-import { DateTime, DisputeStatusChip, EmptyState, ErrorState, Id, Modal, Money, SeverityChip, SkeletonBlock, StatusChip } from '../../components/ui';
+import { Busy, DateTime, DisputeStatusChip, EmptyState, ErrorState, Id, Modal, Money, SeverityChip, SkeletonBlock, StatusChip, Steps } from '../../components/ui';
+import { SEND_STEPS } from './SendMoney';
 import { DisputeForm } from '../../components/DisputeForm';
 import { DETECT_DURATION, DetectFrame, type FrameAnomaly } from '../../components/scenes/DetectScene';
 import { SceneSvg, usePlayOnce } from '../../components/scenes/clock';
@@ -93,13 +94,13 @@ function Signals({ evaluation }: { evaluation?: Evaluation }) {
   );
 }
 
-function TwoFactor({ onVerify, onCancel, busy }: { onVerify: () => void; onCancel: () => void; busy: boolean }) {
+function TwoFactor({ onVerify, onCancel, busy }: { onVerify: () => void; onCancel: () => void; busy: '' | 'verify' | 'cancel' }) {
   const [code, setCode] = useState('');
   const [error, setError] = useState('');
   const submit = (e: FormEvent) => {
     e.preventDefault();
     // Demo only: any six digits are accepted. No code is sent or checked.
-    if (!/^\d{6}$/.test(code)) return setError('Enter the 6-digit code.');
+    if (!/^\d{6}$/.test(code)) return setError(`The code has ${code.length} of 6 digits.`);
     onVerify();
   };
   return (
@@ -116,6 +117,7 @@ function TwoFactor({ onVerify, onCancel, busy }: { onVerify: () => void; onCance
             setCode(e.target.value.replace(/\D/g, '').slice(0, 6));
             setError('');
           }}
+          onBlur={() => code && code.length < 6 && setError(`The code has ${code.length} of 6 digits.`)}
           aria-invalid={Boolean(error)}
           aria-describedby="otp-hint otp-err"
         />
@@ -127,51 +129,76 @@ function TwoFactor({ onVerify, onCancel, busy }: { onVerify: () => void; onCance
         </span>
       </label>
       <div className="form-actions">
-        <button type="button" className="btn btn-ghost" onClick={onCancel} disabled={busy}>
-          Cancel transfer check
+        <button type="button" className="btn btn-ghost" onClick={onCancel} disabled={Boolean(busy)}>
+          <Busy busy={busy === 'cancel'} label="Stopping...">
+            Cancel transfer check
+          </Busy>
         </button>
-        <button type="submit" className="btn btn-brand" disabled={busy}>
-          {busy ? 'Verifying...' : 'Verify and send'}
+        <button type="submit" className="btn btn-brand" disabled={Boolean(busy) || code.length !== 6}>
+          <Busy busy={busy === 'verify'} label="Verifying...">
+            Verify and send
+          </Busy>
         </button>
       </div>
     </form>
   );
 }
 
-function Result({ d, evaluation, customerId, customerName }: { d: TransactionDetail; evaluation?: Evaluation; customerId: string; customerName: string }) {
+/** True while the transfer is waiting on the customer's one-time code. */
+function needsTwoFactor(d: TransactionDetail, customerId: string) {
+  const open = latest(d.anomalies.filter((a) => !a.is_resolved));
+  return d.transaction.status === 'Flagged' && open?.action_taken === 'Require_2FA' && d.sender_customer?.customer_id === customerId;
+}
+
+function Result({
+  d,
+  evaluation,
+  customerId,
+  customerName,
+  cancelled,
+  setCancelled,
+}: {
+  d: TransactionDetail;
+  evaluation?: Evaluation;
+  customerId: string;
+  customerName: string;
+  cancelled: boolean;
+  setCancelled: (v: boolean) => void;
+}) {
   const { toast } = useSession();
   const tx = d.transaction;
   const open = latest(d.anomalies.filter((a) => !a.is_resolved));
   const shown = open ?? latest(d.anomalies);
   const isSender = d.sender_customer?.customer_id === customerId;
-  const [busy, setBusy] = useState(false);
-  const [cancelled, setCancelled] = useState(false);
+  const [busy, setBusy] = useState<'' | 'verify' | 'cancel'>('');
   const [disputeOpen, setDisputeOpen] = useState(false);
   const openDispute = d.disputes.find((x) => !DISPUTE_CLOSED.includes(x.dispute_status));
-  const needs2fa = tx.status === 'Flagged' && open?.action_taken === 'Require_2FA' && isSender;
+  const needs2fa = needsTwoFactor(d, customerId);
 
+  // GOLDEN RULE 3: Offer informative feedback
   const verify = async () => {
     if (!open) return;
-    setBusy(true);
+    setBusy('verify');
     try {
       await verifyTwoFactor(tx, open);
-      toast(`${tx.transaction_ref} verified and sent.`);
+      toast(`${tx.transaction_ref} verified with the one-time code and sent: ${formatMoney(tx.amount, tx.currency)}.`);
     } catch (e) {
       toast((e as Error).message, 'error');
     } finally {
-      setBusy(false);
+      setBusy('');
     }
   };
   const cancel = async () => {
     if (!open) return;
-    setBusy(true);
+    setBusy('cancel');
     try {
       await cancelTwoFactor(tx, open);
       setCancelled(true);
+      toast(`Code step stopped. ${tx.transaction_ref} stays Flagged for analyst review.`);
     } catch (e) {
       toast((e as Error).message, 'error');
     } finally {
-      setBusy(false);
+      setBusy('');
     }
   };
 
@@ -180,8 +207,9 @@ function Result({ d, evaluation, customerId, customerName }: { d: TransactionDet
       Dispute {openDispute.dispute_id} is <DisputeStatusChip status={openDispute.dispute_status} />. An analyst is handling it.
     </p>
   ) : (
+    // GOLDEN RULE 1: Strive for consistency (same label as the analyst File dispute action)
     <button type="button" className="btn btn-white" onClick={() => setDisputeOpen(true)}>
-      <FileWarning size={16} aria-hidden="true" /> File a dispute
+      <FileWarning size={16} aria-hidden="true" /> File dispute
     </button>
   );
 
@@ -269,7 +297,8 @@ function Result({ d, evaluation, customerId, customerName }: { d: TransactionDet
     body = (
       <>
         <div className="result-title result-hold">
-          <h2>Transfer {tx.status.toLowerCase()}</h2>
+          {/* GOLDEN RULE 1: Strive for consistency (status word spelled as in the status chip) */}
+          <h2>Transfer {tx.status}</h2>
         </div>
         <p>This transaction is marked {tx.status}.</p>
         <div className="form-actions" style={{ justifyContent: 'flex-start' }}>
@@ -283,7 +312,7 @@ function Result({ d, evaluation, customerId, customerName }: { d: TransactionDet
     <section className="card card-pad result" aria-live="polite">
       {body}
       {(tx.status === 'Flagged' || tx.status === 'Blocked') && <Signals evaluation={evaluation} />}
-      <Modal open={disputeOpen} onClose={() => setDisputeOpen(false)} title="File a dispute">
+      <Modal open={disputeOpen} onClose={() => setDisputeOpen(false)} title="File dispute">
         <DisputeForm
           initialRef={tx.transaction_ref}
           lockedCustomer={{ customer_id: customerId, customer_name: customerName }}
@@ -335,7 +364,8 @@ function Details({ d, customerId }: { d: TransactionDetail; customerId: string }
                 <DisputeStatusChip status={x.dispute_status} />
                 <span>Dispute {x.dispute_id}</span>
                 <span className="muted" style={{ fontSize: 12.5 }}>
-                  {x.dispute_type}, filed <DateTime value={x.filed_at} seconds={false} />
+                  {/* GOLDEN RULE 1: Strive for consistency (same date format as Created on this page) */}
+                  {x.dispute_type}, filed <DateTime value={x.filed_at} />
                 </span>
               </li>
             ))}
@@ -355,10 +385,24 @@ export default function CustomerTransaction({ playback = false }: { playback?: b
   const state = useAsync(() => api.getTransaction(transaction_ref), [transaction_ref, version]);
   const snapshot = useRef<TransactionDetail | null>(null);
   const [played, setPlayed] = useState(!playback);
+  const [cancelled, setCancelled] = useState(false);
   const onDone = useMemo(() => () => setPlayed(true), []);
+  const { toast } = useSession();
+  const announced = useRef(false);
   const d = state.data;
   const mine = Boolean(d && session && (d.sender_customer?.customer_id === session.customer_id || d.receiver_customer?.customer_id === session.customer_id));
   if (d && mine && !snapshot.current) snapshot.current = d;
+
+  // GOLDEN RULE 3: Offer informative feedback (announced when the check finishes, so the playback is not spoiled)
+  useEffect(() => {
+    if (!playback || !played || announced.current || !snapshot.current) return;
+    announced.current = true;
+    const t = snapshot.current.transaction;
+    toast(
+      `${t.transaction_ref} for ${formatMoney(t.amount, t.currency)} ${t.status === 'Success' ? 'sent' : t.status === 'Blocked' ? 'was Blocked by the rule check' : 'is Flagged and held by the rule check'}.`,
+      t.status === 'Success' ? 'ok' : 'error',
+    );
+  }, [playback, played, toast]);
 
   // Opening a transaction from the dashboard counts as seeing its flag notice.
   // The send result screen does not, so the dashboard still announces a flag raised by Send money.
@@ -387,6 +431,8 @@ export default function CustomerTransaction({ playback = false }: { playback?: b
           <h1 className="mono tx-title">{transaction_ref}</h1>
         </div>
       </header>
+      {/* GOLDEN RULE 4: Design dialogs to yield closure (Check stays current through the code step; Result is the settled end) */}
+      {playback && d && session && mine && <Steps steps={SEND_STEPS} current={!played || (needsTwoFactor(d, session.customer_id) && !cancelled) ? 1 : SEND_STEPS.length} />}
       {notFound ? (
         <EmptyState title="Transaction not found" body="No transaction with this reference belongs to your accounts." action={<Link to="/app/dashboard" className="btn btn-ghost btn-sm">Back to dashboard</Link>} />
       ) : state.error ? (
@@ -395,7 +441,7 @@ export default function CustomerTransaction({ playback = false }: { playback?: b
         <SkeletonBlock height={320} />
       ) : (
         <div className="result-stack">
-          {played && <Result d={d} evaluation={evaluation} customerId={session.customer_id} customerName={session.customer_name} />}
+          {played && <Result d={d} evaluation={evaluation} customerId={session.customer_id} customerName={session.customer_name} cancelled={cancelled} setCancelled={setCancelled} />}
           {playback && snapshot.current && <Playback snapshot={snapshot.current} evaluation={evaluation} onDone={onDone} />}
           {played && <Details d={d} customerId={session.customer_id} />}
         </div>

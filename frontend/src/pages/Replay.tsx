@@ -69,7 +69,8 @@ function buildEvents(d: TransactionDetail): ReplayEvent[] {
   }
   for (const x of d.disputes) {
     ev.push({ id: `df${x.dispute_id}`, kind: 'dispute_filed', at: x.filed_at, title: `Dispute filed: ${x.dispute_type}`, source: 'Dispute_Logs.filed_at', detail: x.dispute_reason });
-    if (x.resolved_at) ev.push({ id: `dc${x.dispute_id}`, kind: 'dispute_closed', at: x.resolved_at, title: `Dispute ${x.dispute_status.toLowerCase()}`, source: 'Dispute_Logs.resolved_at', detail: `Status ${x.dispute_status}` });
+    // GOLDEN RULE 1: Strive for consistency (status word spelled as in the status chip)
+    if (x.resolved_at) ev.push({ id: `dc${x.dispute_id}`, kind: 'dispute_closed', at: x.resolved_at, title: `Dispute ${x.dispute_status}`, source: 'Dispute_Logs.resolved_at', detail: `Status ${x.dispute_status}` });
   }
   for (const a of d.audit) {
     ev.push({

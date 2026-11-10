@@ -3,7 +3,7 @@ import { Link, useNavigate } from 'react-router-dom';
 import { ArrowRight, Send, X } from 'lucide-react';
 import { api, ApiError } from '../../api';
 import { useAsync } from '../../lib/hooks';
-import { useSession } from '../../lib/session';
+import { TOAST_SHORT, useSession } from '../../lib/session';
 import { alertItems, readSeen, useCustomerSession, writeSeen, type AlertItem } from '../../lib/customerSession';
 import { DISPUTE_CLOSED, label } from '../../constants/enums';
 import { maskAccountNumber, maskEmail } from '../../lib/format';
@@ -46,11 +46,14 @@ function FlagNotices({ profile }: { profile: CustomerProfile }) {
     if (s) setSeen(s);
   }, [id, profile]);
 
+  const { toast } = useSession();
   const fresh = items.filter((i) => !seen.has(i.key));
-  const dismiss = (i: AlertItem) => {
+  const dismiss = (i: AlertItem, announce = false) => {
     const next = new Set(seen).add(i.key);
     setSeen(next);
     writeSeen(id, next);
+    // GOLDEN RULE 3: Offer informative feedback (small action, short toast)
+    if (announce) toast(`Notice for ${i.transaction_ref} dismissed. The transaction page still shows its status.`, 'ok', { duration: TOAST_SHORT });
   };
 
   return (
@@ -60,14 +63,15 @@ function FlagNotices({ profile }: { profile: CustomerProfile }) {
           <SeverityChip level={i.severity_level ?? null} />
           <div className="notice-body">
             <strong>
-              <span className="mono">{i.transaction_ref}</span> was {i.status === 'Blocked' ? 'blocked' : 'flagged'}
+              {/* GOLDEN RULE 1: Strive for consistency (status words match the status chips) */}
+              <span className="mono">{i.transaction_ref}</span> is {i.status === 'Blocked' ? 'Blocked' : 'Flagged'}
             </strong>
             {i.flag_reason && <span className="notice-reason">{i.flag_reason}</span>}
           </div>
           <Link to={`/app/transactions/${i.transaction_ref}`} className="btn btn-white btn-sm" onClick={() => dismiss(i)}>
             View details
           </Link>
-          <button type="button" className="btn btn-ghost btn-sm btn-icon" onClick={() => dismiss(i)} aria-label={`Dismiss notice for ${i.transaction_ref}`}>
+          <button type="button" className="btn btn-ghost btn-sm btn-icon" onClick={() => dismiss(i, true)} data-rule="3" aria-label={`Dismiss notice for ${i.transaction_ref}`}>
             <X size={14} aria-hidden="true" />
           </button>
         </div>

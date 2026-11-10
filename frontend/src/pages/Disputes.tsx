@@ -2,11 +2,11 @@ import { useState } from 'react';
 import { Link } from 'react-router-dom';
 import { FilePlus2, PlayCircle, Search, X } from 'lucide-react';
 import { api } from '../api';
-import { changeDisputeStatus } from '../api/actions';
+import { changeDisputeStatus, undoDisputeStatus } from '../api/actions';
 import { useAsync, useQueryState, useSyncedSearch } from '../lib/hooks';
 import { useSession } from '../lib/session';
 import { DISPUTE_CLOSED, DISPUTE_STATUS_FLOW, DISPUTE_TYPE, DISPUTE_STATUS, options, type DisputeStatus } from '../constants/enums';
-import { DataView, DateTime, DisputeStatusChip, Drawer, EmptyState, Id, MenuButton, Modal, Money, PageHead, Pagination, Select, SkeletonRows, SortHeader } from '../components/ui';
+import { Busy, ConfirmDialog, DataView, DateTime, DisputeStatusChip, Drawer, EmptyState, Id, MenuButton, Modal, Money, PageHead, Pagination, Select, SkeletonRows, SortHeader } from '../components/ui';
 import { DisputeForm } from '../components/DisputeForm';
 import type { DisputeQuery } from '../api/types';
 import type { DisputeLog } from '../types/db';
@@ -16,38 +16,82 @@ const DEFAULTS = { search: '', dispute_type: '', dispute_status: '', sort: '-fil
 function StatusMenu({ d, onChanged }: { d: DisputeLog; onChanged: (u: DisputeLog) => void }) {
   const { analyst, toast, bump } = useSession();
   const [busy, setBusy] = useState(false);
-  return (
-    <MenuButton
-      label={busy ? 'Saving...' : 'Change status'}
-      disabled={busy}
-      align="right"
-      items={DISPUTE_STATUS_FLOW.map((s) => ({
-        key: s,
-        current: s === d.dispute_status,
-        disabled: s === d.dispute_status,
-        label: (
-          <>
-            <DisputeStatusChip status={s} />
-            <span className="muted" style={{ fontSize: 12, marginLeft: 'auto' }}>
-              {s === d.dispute_status ? 'Current' : DISPUTE_CLOSED.includes(s) ? 'Sets resolved_at' : DISPUTE_CLOSED.includes(d.dispute_status) ? 'Clears resolved_at' : ''}
-            </span>
-          </>
-        ),
-        onSelect: async () => {
-          setBusy(true);
-          try {
-            const u = await changeDisputeStatus(d, s as DisputeStatus, analyst);
-            onChanged(u);
-            bump();
-            toast(`Dispute ${d.dispute_id} moved to ${s}. Audit_Trail entry written by ${analyst}.`);
-          } catch (e) {
-            toast((e as Error).message, 'error');
-          } finally {
-            setBusy(false);
-          }
+  const [confirmReject, setConfirmReject] = useState(false);
+
+  const apply = async (s: DisputeStatus) => {
+    const before = d;
+    setBusy(true);
+    try {
+      const u = await changeDisputeStatus(d, s, analyst);
+      onChanged(u);
+      bump();
+      // GOLDEN RULE 3: Offer informative feedback
+      toast(`Dispute ${d.dispute_id} on ${d.transaction_ref} moved from ${before.dispute_status} to ${s}.`, 'ok', {
+        // GOLDEN RULE 6: Permit easy reversal of actions
+        action: {
+          label: 'Undo',
+          run: async () => {
+            try {
+              const r = await undoDisputeStatus(before, s, analyst);
+              onChanged(r);
+              bump();
+              toast(`Undone: dispute ${before.dispute_id} is back to ${before.dispute_status}. Reversal logged to Audit_Trail.`);
+            } catch (e) {
+              toast(`Undo failed: ${(e as Error).message}`, 'error');
+            }
+          },
         },
-      }))}
-    />
+      });
+    } catch (e) {
+      toast((e as Error).message, 'error');
+    } finally {
+      setBusy(false);
+    }
+  };
+
+  return (
+    <>
+      <MenuButton
+        label={
+          <Busy busy={busy} label="Changing status...">
+            Change status
+          </Busy>
+        }
+        disabled={busy}
+        align="right"
+        items={DISPUTE_STATUS_FLOW.map((s) => ({
+          key: s,
+          current: s === d.dispute_status,
+          disabled: s === d.dispute_status,
+          label: (
+            <>
+              <DisputeStatusChip status={s} />
+              <span className="muted" style={{ fontSize: 12, marginLeft: 'auto' }}>
+                {s === d.dispute_status ? 'Current' : DISPUTE_CLOSED.includes(s) ? 'Sets resolved_at' : DISPUTE_CLOSED.includes(d.dispute_status) ? 'Clears resolved_at' : ''}
+              </span>
+            </>
+          ),
+          // GOLDEN RULE 5: Error prevention and simple error handling (rejecting asks first)
+          onSelect: () => (s === 'Rejected' ? setConfirmReject(true) : apply(s as DisputeStatus)),
+        }))}
+      />
+      <ConfirmDialog
+        open={confirmReject}
+        title="Reject this dispute?"
+        message={
+          <>
+            Dispute {d.dispute_id} on <span className="mono">{d.transaction_ref}</span> will close as Rejected, which sets resolved_at and removes it from the customer's open items.
+          </>
+        }
+        confirmLabel="Reject dispute"
+        busy={busy}
+        onCancel={() => setConfirmReject(false)}
+        onConfirm={async () => {
+          await apply('Rejected');
+          setConfirmReject(false);
+        }}
+      />
+    </>
   );
 }
 

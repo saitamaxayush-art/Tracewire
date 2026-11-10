@@ -24,7 +24,8 @@
   height: var(--nav-h);
   background: var(--graphite);
   border: 1px solid var(--line);
-  border-radius: 8px;
+  /* GOLDEN RULE 1: Strive for consistency (radius from the token, not a raw value) */
+  border-radius: var(--r-card);
   display: flex;
   align-items: center;
   gap: 8px;
@@ -146,7 +147,8 @@
   margin-top: 8px;
   background: var(--graphite);
   border: 1px solid var(--line);
-  border-radius: 8px;
+  /* GOLDEN RULE 1: Strive for consistency (radius from the token, not a raw value) */
+  border-radius: var(--r-card);
   padding: 8px;
   box-shadow: 0 14px 40px rgba(0, 0, 0, 0.45);
   max-height: calc(100vh - 120px);

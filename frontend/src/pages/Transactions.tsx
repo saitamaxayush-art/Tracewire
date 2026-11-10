@@ -5,7 +5,7 @@ import { api } from '../api';
 import { useAsync, useQueryState, useSyncedSearch } from '../lib/hooks';
 import { useSession } from '../lib/session';
 import { TRANSACTION_STATUS, TRANSACTION_TYPE, label, options } from '../constants/enums';
-import { DataView, DateTime, EmptyState, Id, Money, PageHead, Pagination, Select, SkeletonRows, SortHeader, StatusChip } from '../components/ui';
+import { Busy, DataView, DateTime, EmptyState, Id, Money, PageHead, Pagination, Select, SkeletonRows, SortHeader, StatusChip } from '../components/ui';
 import { TransactionDrawer } from '../components/TransactionDrawer';
 import { downloadText, fetchAll, toCsv } from '../lib/csv';
 import type { TransactionQuery } from '../api/types';
@@ -71,7 +71,10 @@ export default function Transactions() {
         sub="Every row in the Transactions table. Filter by any ENUM, amount or date, sort any column and open a row for the sender, receiver and linked records."
         actions={
           <button type="button" className="btn btn-ghost" onClick={exportCsv} disabled={exporting || !state.data?.total}>
-            <Download size={16} aria-hidden="true" /> {exporting ? 'Exporting...' : `Export CSV${state.data ? ` (${state.data.total})` : ''}`}
+            {/* GOLDEN RULE 3: Offer informative feedback */}
+            <Busy busy={exporting} label="Exporting...">
+              <Download size={16} aria-hidden="true" /> {`Export CSV${state.data ? ` (${state.data.total})` : ''}`}
+            </Busy>
           </button>
         }
       />

@@ -27,6 +27,29 @@ export async function resolveAnomaly(a: AnomalyPattern, notes: string, performed
   return updated;
 }
 
+// GOLDEN RULE 6: Permit easy reversal of actions
+/** Undo for resolveAnomaly: puts back every field the resolve changed and logs the reversal. */
+export async function undoResolveAnomaly(before: AnomalyPattern, performed_by: string) {
+  const ts = nowNaive();
+  const updated = await api.updateAnomaly(before.anomaly_id, {
+    is_resolved: false,
+    resolution_notes: before.resolution_notes,
+    resolved_at: before.resolved_at,
+    reviewed_by: before.reviewed_by,
+  });
+  await api.createAudit({
+    transaction_ref: before.transaction_ref,
+    customer_id: before.customer_id,
+    action_type: 'Anomaly Resolution Reversed',
+    action_description: clip(`Undo: anomaly ${before.anomaly_id} (${before.rule_code}) set back to unresolved, reviewed_by restored to ${before.reviewed_by}`),
+    performed_by,
+    risk_score: before.risk_score,
+    severity_level: before.severity_level,
+    action_timestamp: ts,
+  });
+  return updated;
+}
+
 export async function reopenAnomaly(a: AnomalyPattern, performed_by: string) {
   const ts = nowNaive();
   const updated = await api.updateAnomaly(a.anomaly_id, { is_resolved: false, resolved_at: null });
@@ -100,6 +123,24 @@ export async function changeDisputeStatus(d: DisputeLog, dispute_status: Dispute
     customer_id: d.customer_id,
     action_type: 'Dispute Status Changed',
     action_description: clip(`Dispute ${d.dispute_id} moved from ${d.dispute_status} to ${dispute_status}`),
+    performed_by,
+    risk_score: null,
+    severity_level: null,
+    action_timestamp: ts,
+  });
+  return updated;
+}
+
+// GOLDEN RULE 6: Permit easy reversal of actions
+/** Undo for changeDisputeStatus: restores the previous status and resolved_at, and logs the reversal. */
+export async function undoDisputeStatus(before: DisputeLog, from: DisputeStatus, performed_by: string) {
+  const ts = nowNaive();
+  const updated = await api.updateDispute(before.dispute_id, { dispute_status: before.dispute_status, resolved_at: before.resolved_at });
+  await api.createAudit({
+    transaction_ref: before.transaction_ref,
+    customer_id: before.customer_id,
+    action_type: 'Dispute Status Reversed',
+    action_description: clip(`Undo: dispute ${before.dispute_id} moved back from ${from} to ${before.dispute_status}`),
     performed_by,
     risk_score: null,
     severity_level: null,

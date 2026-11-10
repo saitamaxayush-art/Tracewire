@@ -13,7 +13,8 @@
 }
 .auth-card h1 {
   font-size: clamp(30px, 4vw, 40px);
-  margin: 12px 0 22px;
+  /* GOLDEN RULE 1: Strive for consistency (8px rhythm) */
+  margin: 12px 0 24px;
 }
 .auth-two {
   display: grid;
@@ -30,7 +31,8 @@
 }
 .auth-quick {
   margin-top: 24px;
-  padding-top: 18px;
+  /* GOLDEN RULE 1: Strive for consistency (8px rhythm) */
+  padding-top: 16px;
   border-top: 1px solid var(--line);
 }
 .auth-quick ul {
@@ -43,7 +45,8 @@
   display: flex;
   justify-content: space-between;
   gap: 12px;
-  padding: 9px 8px;
+  /* GOLDEN RULE 1: Strive for consistency (8px rhythm) */
+  padding: 8px;
   background: transparent;
   border: 0;
   border-radius: 4px;
@@ -104,7 +107,8 @@
   gap: 12px;
 }
 .acct-card {
-  padding: 16px 18px;
+  /* GOLDEN RULE 1: Strive for consistency (8px rhythm) */
+  padding: 16px;
   display: grid;
   gap: 4px;
 }
@@ -144,6 +148,16 @@
 }
 .notice-blocked {
   border-left-color: var(--st-blocked);
+}
+.notice-ok {
+  border-left-color: var(--st-success);
+}
+.notice-ok > svg {
+  color: var(--st-success);
+  flex: none;
+}
+.notice-ok .notice-reason {
+  white-space: normal;
 }
 .notice-body {
   flex: 1;
@@ -193,7 +207,8 @@
   font-size: 13.5px;
 }
 .card-pad .open-row {
-  padding: 10px 0;
+  /* GOLDEN RULE 1: Strive for consistency (same row height as .open-row, 8px rhythm) */
+  padding: 12px 0;
   grid-template-columns: auto auto minmax(0, 1fr);
 }
 a.open-row:hover {
@@ -243,7 +258,8 @@ a.open-row:hover {
   flex-wrap: wrap;
 }
 .result-reason {
-  padding: 12px 14px;
+  /* GOLDEN RULE 1: Strive for consistency (matches the notice padding, 8px rhythm) */
+  padding: 12px 16px;
   background: var(--ink);
   border: 1px solid var(--line);
   border-radius: var(--r-btn);
@@ -297,7 +313,8 @@ a.open-row:hover {
   aspect-ratio: 1;
   background: var(--ink);
   border: 1px solid var(--line);
-  border-radius: 6px;
+  /* GOLDEN RULE 1: Strive for consistency (framed panels use the card radius token) */
+  border-radius: var(--r-card);
   padding: 2%;
 }
 .playback-frame .scene-svg {

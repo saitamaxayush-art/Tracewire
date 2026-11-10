@@ -4,7 +4,7 @@ import { brand } from '../../config/brand';
 import { LogoMark } from './Logo';
 import { api, USE_MOCK } from '../../api';
 import { useSession } from '../../lib/session';
-import { Modal } from '../ui';
+import { Busy, Modal } from '../ui';
 
 const COLUMNS = [
   {
@@ -36,6 +36,7 @@ const COLUMNS = [
 
 export function Footer() {
   const { toast, bump } = useSession();
+  const [resetting, setResetting] = useState(false);
   const [confirm, setConfirm] = useState(false);
   return (
     <footer className="footer">
@@ -81,20 +82,32 @@ export function Footer() {
           This removes every change made in this browser (resolved alerts, filed disputes, audit entries) and reloads the original rows from the SQL seed.
         </p>
         <div style={{ display: 'flex', gap: 8, justifyContent: 'flex-end' }}>
-          <button type="button" className="btn btn-ghost" onClick={() => setConfirm(false)}>
+          <button type="button" className="btn btn-ghost" onClick={() => setConfirm(false)} disabled={resetting}>
             Cancel
           </button>
           <button
             type="button"
             className="btn btn-danger"
+            disabled={resetting}
+            data-rule="3"
             onClick={async () => {
-              await api.resetData();
-              setConfirm(false);
-              bump();
-              toast('Local changes cleared. Records restored from the SQL seed.');
+              // GOLDEN RULE 3: Offer informative feedback
+              setResetting(true);
+              try {
+                await api.resetData();
+                setConfirm(false);
+                bump();
+                toast('Local changes cleared. Every table is back to the rows in the SQL seed.');
+              } catch (e) {
+                toast(`Reset failed: ${(e as Error).message}`, 'error');
+              } finally {
+                setResetting(false);
+              }
             }}
           >
-            Reset data
+            <Busy busy={resetting} label="Resetting...">
+              Reset data
+            </Busy>
           </button>
         </div>
       </Modal>

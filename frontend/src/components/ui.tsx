@@ -1,6 +1,6 @@
 import { useEffect, useId, useRef, useState, type KeyboardEvent as ReactKeyboardEvent, type ReactNode, type SelectHTMLAttributes } from 'react';
 import { createPortal } from 'react-dom';
-import { AlertTriangle, ArrowDown, ArrowUp, ChevronDown, ChevronLeft, ChevronRight, Inbox, RotateCw, X } from 'lucide-react';
+import { AlertTriangle, ArrowDown, ArrowUp, ChevronDown, ChevronLeft, ChevronRight, Inbox, Loader2, RotateCw, X } from 'lucide-react';
 import {
   ACTION_TOKEN,
   DISPUTE_STATUS_TOKEN,
@@ -220,6 +220,9 @@ function useFocusTrap(open: boolean, onClose: () => void) {
       (el?.querySelector<HTMLElement>('[data-autofocus]') ?? focusables()[0])?.focus();
     }, 0);
     const onKey = (e: KeyboardEvent) => {
+      // Only the dialog on top handles keys, so a confirm opened over a drawer closes on its own.
+      const dialogs = document.querySelectorAll('[role="dialog"][aria-modal="true"]');
+      if (dialogs.length && dialogs[dialogs.length - 1] !== el) return;
       if (e.key === 'Escape') {
         e.stopPropagation();
         closeRef.current();
@@ -395,6 +398,75 @@ export function MenuButton({
           document.body,
         )}
     </>
+  );
+}
+
+// ---------- Feedback, confirmation, steps ----------
+
+/** Button content while an action is in flight: a spinner plus the in-flight label. */
+export function Busy({ busy, label: busyLabel, children }: { busy: boolean; label: string; children: ReactNode }) {
+  // GOLDEN RULE 3: Offer informative feedback (disabled-with-spinner state on the clicked control)
+  if (!busy) return <>{children}</>;
+  return (
+    <>
+      <Loader2 size={14} className="spin" aria-hidden="true" />
+      {busyLabel}
+    </>
+  );
+}
+
+/** One-line confirmation before an action that cannot be undone from the UI. Cancel is the lighter option. */
+export function ConfirmDialog({
+  open,
+  title,
+  message,
+  confirmLabel,
+  busy,
+  onConfirm,
+  onCancel,
+}: {
+  open: boolean;
+  title: string;
+  message: ReactNode;
+  confirmLabel: string;
+  busy?: boolean;
+  onConfirm: () => void;
+  onCancel: () => void;
+}) {
+  return (
+    <Modal open={open} onClose={onCancel} title={title}>
+      {/* GOLDEN RULE 5: Error prevention and simple error handling */}
+      <div data-rule="5">
+        <p className="muted" style={{ marginBottom: 16 }}>
+          {message}
+        </p>
+        <div style={{ display: 'flex', gap: 8, justifyContent: 'flex-end' }}>
+          <button type="button" className="btn btn-ghost" onClick={onCancel} disabled={busy} data-autofocus>
+            Cancel
+          </button>
+          <button type="button" className="btn btn-danger" onClick={onConfirm} disabled={busy} data-rule="5">
+            <Busy busy={Boolean(busy)} label="Working...">
+              {confirmLabel}
+            </Busy>
+          </button>
+        </div>
+      </div>
+    </Modal>
+  );
+}
+
+/** Three short labels at the top of a multi-step flow. `current` is 0-based; `current === steps.length` means finished. */
+export function Steps({ steps, current }: { steps: string[]; current: number }) {
+  return (
+    // GOLDEN RULE 4: Design dialogs to yield closure
+    <ol className="steps" aria-label="Progress" data-rule="4">
+      {steps.map((s, i) => (
+        <li key={s} data-state={i < current || current >= steps.length ? 'done' : i === current ? 'current' : 'next'} aria-current={i === current ? 'step' : undefined}>
+          <span className="sq" aria-hidden="true" />
+          {s}
+        </li>
+      ))}
+    </ol>
   );
 }
 

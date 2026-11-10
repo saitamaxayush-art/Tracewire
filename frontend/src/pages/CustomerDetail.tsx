@@ -6,7 +6,7 @@ import { logReveal } from '../api/actions';
 import { useAsync } from '../lib/hooks';
 import { useSession } from '../lib/session';
 import { label } from '../constants/enums';
-import { ActionChip, Chip, DataView, DateTime, DisputeStatusChip, EmptyState, Id, Money, ResolvedChip, SeverityChip, SkeletonRows, StatusChip, Dash } from '../components/ui';
+import { ActionChip, Busy, Chip, DataView, DateTime, DisputeStatusChip, EmptyState, Id, Money, ResolvedChip, SeverityChip, SkeletonRows, StatusChip, Dash } from '../components/ui';
 import { maskEmail, maskPhone } from '../lib/format';
 import { customerStatusColor } from './Customers';
 import NotFound from './NotFound';
@@ -36,7 +36,9 @@ function Masked({ value, masked, onReveal, field }: { value: string; masked: str
           }}
           aria-label={`Reveal ${field}. This writes an Audit_Trail entry.`}
         >
-          <Eye size={14} aria-hidden="true" /> {busy ? 'Logging...' : 'Reveal'}
+          <Busy busy={busy} label="Logging...">
+            <Eye size={14} aria-hidden="true" /> Reveal
+          </Busy>
         </button>
       )}
     </span>
@@ -62,7 +64,8 @@ export default function CustomerDetail() {
             try {
               await logReveal(c, field, analyst);
               bump();
-              toast(`Revealed ${field === 'email' ? 'email' : 'phone'}. Logged to Audit_Trail as ${analyst}.`);
+              // GOLDEN RULE 3: Offer informative feedback
+              toast(`Revealed the ${field === 'email' ? 'email' : 'phone number'} of customer ${c.customer_id}. Logged to Audit_Trail as ${analyst}.`);
             } catch (e) {
               toast(`Reveal not logged: ${(e as Error).message}`, 'error');
               throw e;

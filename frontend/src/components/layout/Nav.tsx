@@ -3,7 +3,7 @@ import { Link, NavLink, useLocation, useNavigate } from 'react-router-dom';
 import { ChevronDown, LogOut, Menu, Search, UserRound, X } from 'lucide-react';
 import { Logo } from './Logo';
 import { brand } from '../../config/brand';
-import { ANALYSTS, useSession, type Analyst } from '../../lib/session';
+import { ANALYSTS, TOAST_SHORT, useSession, type Analyst } from '../../lib/session';
 import { USE_MOCK } from '../../api';
 import { lastPath, roleOf, useCustomerSession } from '../../lib/customerSession';
 
@@ -49,6 +49,7 @@ function RoleSwitch() {
 
 function CustomerTools() {
   const { session, signOut } = useCustomerSession();
+  const { toast } = useSession();
   const navigate = useNavigate();
   if (!session) {
     return (
@@ -69,6 +70,8 @@ function CustomerTools() {
         onClick={() => {
           navigate('/');
           signOut();
+          // GOLDEN RULE 3: Offer informative feedback
+          toast(`Logged out of ${session.customer_name}, customer ${session.customer_id}.`);
         }}
       >
         <LogOut size={14} aria-hidden="true" /> Log out
@@ -78,12 +81,19 @@ function CustomerTools() {
 }
 
 function AnalystSwitcher({ compact }: { compact?: boolean }) {
-  const { analyst, setAnalyst } = useSession();
+  const { analyst, setAnalyst, toast } = useSession();
   return (
     <label className={`analyst${compact ? ' analyst-compact' : ''}`} title={USE_MOCK ? 'Acting analyst, written to performed_by' : 'Acting analyst'}>
       <UserRound size={14} aria-hidden="true" />
       <span className="sr-only">Acting analyst</span>
-      <select value={analyst} onChange={(e) => setAnalyst(e.target.value as Analyst)}>
+      <select
+        value={analyst}
+        onChange={(e) => {
+          setAnalyst(e.target.value as Analyst);
+          // GOLDEN RULE 3: Offer informative feedback (small action, short toast)
+          toast(`Acting as ${e.target.value}. New audit entries use this name.`, 'ok', { duration: TOAST_SHORT });
+        }}
+      >
         {ANALYSTS.map((a) => (
           <option key={a} value={a}>
             {a}

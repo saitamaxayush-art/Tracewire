@@ -156,12 +156,17 @@
 .textarea[aria-invalid='true'] {
   border-color: var(--alert);
 }
-.field-error {
+/* GOLDEN RULE 1: Strive for consistency (.field > span used to override these, so errors inside a field showed grey and bold) */
+.field-error,
+.field > .field-error {
   font-size: 12px;
+  font-weight: 400;
   color: var(--alert);
 }
-.field-hint {
+.field-hint,
+.field > .field-hint {
   font-size: 12px;
+  font-weight: 400;
   color: var(--muted);
 }
 .input-icon {
@@ -566,6 +571,13 @@ table.data th.r {
   box-shadow: 0 12px 30px rgba(0, 0, 0, 0.4);
   animation: fade 0.2s var(--ease);
 }
+.toast-msg {
+  flex: 1;
+  min-width: 0;
+}
+.toast-action {
+  flex: none;
+}
 .toast-error .sq {
   background: var(--alert);
 }
@@ -614,4 +626,49 @@ table.data th.r {
   position: absolute;
   inset: 0 auto 0 0;
   transition: width 0.6s var(--ease);
+}
+
+/* In-flight state on the clicked control */
+.spin {
+  animation: spin 0.8s linear infinite;
+}
+@keyframes spin {
+  to {
+    transform: rotate(360deg);
+  }
+}
+@media (prefers-reduced-motion: reduce) {
+  .spin {
+    animation-duration: 2.4s;
+  }
+}
+
+/* Step indicator: the eyebrow's square marker, one per step */
+.steps {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px 16px;
+  margin: 0 0 16px;
+  padding: 0;
+  list-style: none;
+  font-family: var(--font-mono);
+  font-size: 12px;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+  color: var(--muted);
+}
+.steps li {
+  display: inline-flex;
+  align-items: center;
+  gap: 10px;
+}
+.steps li .sq {
+  background: var(--line);
+}
+.steps li[data-state='current'] {
+  color: var(--paper);
+}
+.steps li[data-state='current'] .sq,
+.steps li[data-state='done'] .sq {
+  background: var(--brand-bright);
 }

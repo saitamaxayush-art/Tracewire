@@ -2,6 +2,7 @@
 // and a version counter that bumps whenever the shared store changes.
 
 import { createContext, useCallback, useContext, useEffect, useMemo, useState, type ReactNode } from 'react';
+import { Loader2 } from 'lucide-react';
 import { api } from '../api';
 
 export const ANALYSTS = ['Analyst01', 'Analyst02'] as const;
@@ -13,7 +14,19 @@ export const REVIEWERS = [...ANALYSTS, SYSTEM_ACTOR] as const;
 
 const KEY = 'tracewire.analyst';
 
-interface Toast {
+export interface ToastOptions {
+  /** How long the toast stays, in ms. Small confirmations use TOAST_SHORT, undoable ones TOAST_UNDO. */
+  duration?: number;
+  /** An inline action, used for Undo. The toast closes when the action finishes. */
+  action?: { label: string; run: () => Promise<void> | void };
+}
+
+/** Durations shared by every toast in the app. */
+export const TOAST_SHORT = 2000;
+export const TOAST_DEFAULT = 4200;
+export const TOAST_UNDO = 7000;
+
+interface Toast extends ToastOptions {
   id: number;
   message: string;
   tone: 'ok' | 'error';
@@ -22,7 +35,7 @@ interface Toast {
 interface SessionValue {
   analyst: Analyst;
   setAnalyst: (a: Analyst) => void;
-  toast: (message: string, tone?: Toast['tone']) => void;
+  toast: (message: string, tone?: Toast['tone'], opts?: ToastOptions) => void;
   /** Bumped after any write so open views can refetch. */
   version: number;
   bump: () => void;
@@ -54,11 +67,17 @@ export function SessionProvider({ children }: { children: ReactNode }) {
     }
   }, []);
 
-  const toast = useCallback((message: string, tone: Toast['tone'] = 'ok') => {
-    const id = Date.now() + Math.random();
-    setToasts((t) => [...t, { id, message, tone }]);
-    setTimeout(() => setToasts((t) => t.filter((x) => x.id !== id)), 4200);
-  }, []);
+  const dismiss = useCallback((id: number) => setToasts((t) => t.filter((x) => x.id !== id)), []);
+
+  // GOLDEN RULE 3: Offer informative feedback (one shared toast channel, timed by the size of the action)
+  const toast = useCallback(
+    (message: string, tone: Toast['tone'] = 'ok', opts: ToastOptions = {}) => {
+      const id = Date.now() + Math.random();
+      setToasts((t) => [...t, { id, message, tone, ...opts }]);
+      setTimeout(() => dismiss(id), opts.duration ?? (opts.action ? TOAST_UNDO : TOAST_DEFAULT));
+    },
+    [dismiss],
+  );
 
   const bump = useCallback(() => setVersion((v) => v + 1), []);
 
@@ -83,13 +102,41 @@ export function SessionProvider({ children }: { children: ReactNode }) {
       {children}
       <div className="toasts" role="status" aria-live="polite">
         {toasts.map((t) => (
-          <div key={t.id} className={`toast toast-${t.tone}`}>
-            <span className="sq" aria-hidden="true" />
-            {t.message}
-          </div>
+          <ToastItem key={t.id} t={t} onDone={() => dismiss(t.id)} />
         ))}
       </div>
     </Ctx.Provider>
+  );
+}
+
+function ToastItem({ t, onDone }: { t: Toast; onDone: () => void }) {
+  const [busy, setBusy] = useState(false);
+  return (
+    // GOLDEN RULE 3: Offer informative feedback
+    <div className={`toast toast-${t.tone}`} data-rule={t.action ? '3 6' : '3'}>
+      <span className="sq" aria-hidden="true" />
+      <span className="toast-msg">{t.message}</span>
+      {t.action && (
+        // GOLDEN RULE 6: Permit easy reversal of actions (Undo reverts the data and writes an Audit_Trail row)
+        <button
+          type="button"
+          className="btn btn-black btn-sm toast-action"
+          data-rule="6"
+          disabled={busy}
+          onClick={async () => {
+            setBusy(true);
+            try {
+              await t.action!.run();
+            } finally {
+              onDone();
+            }
+          }}
+        >
+          {busy && <Loader2 size={14} className="spin" aria-hidden="true" />}
+          {busy ? 'Undoing...' : t.action.label}
+        </button>
+      )}
+    </div>
   );
 }
 

@@ -8,8 +8,11 @@ import { useSession } from '../../lib/session';
 import { CUSTOMER_TRANSFER_TYPES, type CustomerTransferType } from '../../lib/scoring';
 import { formatMoney, maskAccountNumber } from '../../lib/format';
 import { label } from '../../constants/enums';
-import { DataView, PageHead, Select, SkeletonRows } from '../../components/ui';
+import { Busy, DataView, PageHead, Select, SkeletonRows, Steps } from '../../components/ui';
 import { useCustomerProfile } from './CustomerDashboard';
+
+/** Shared with the result screen so both show the same three steps. */
+export const SEND_STEPS = ['Details', 'Check', 'Result'];
 
 type Errors = Partial<Record<'from' | 'receiver' | 'amount' | 'currency' | 'type' | 'note' | 'form', string>>;
 
@@ -34,7 +37,10 @@ export default function SendMoney() {
   const [currencyTouched, setCurrencyTouched] = useState(false);
   const [type, setType] = useState<CustomerTransferType>('Transfer Transaction');
   const [note, setNote] = useState('');
-  const [errors, setErrors] = useState<Errors>({});
+  const [touched, setTouched] = useState<Set<keyof Errors>>(new Set());
+  const [formError, setFormError] = useState('');
+  /** The receiver text the last lookup ran for, so stale matches are never used. */
+  const [lookedUp, setLookedUp] = useState('');
   const [busy, setBusy] = useState(false);
 
   const p = state.data;
@@ -53,6 +59,7 @@ export default function SendMoney() {
     if (!q) {
       setMatches(null);
       setReceiverId('');
+      setLookedUp('');
       return null;
     }
     setLooking(true);
@@ -61,53 +68,73 @@ export default function SendMoney() {
       setMatches(m);
       const pick = m.length === 1 ? m[0] : m.find((x) => x.account.account_id === receiverId) ?? null;
       setReceiverId(pick?.account.account_id ?? '');
-      setErrors((e) => ({ ...e, receiver: m.length ? undefined : `No account matches ${q}. Enter a 10-digit account number or the receiver's email.` }));
       return pick;
     } finally {
+      setLookedUp(q);
       setLooking(false);
     }
   };
 
+  // GOLDEN RULE 5: Error prevention and simple error handling (the receiver is resolved as it is typed)
+  useEffect(() => {
+    const q = query.trim();
+    if (!q || q === lookedUp) return;
+    const t = setTimeout(() => lookup(), 400);
+    return () => clearTimeout(t);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [query]);
+
   const receiver = matches?.find((m) => m.account.account_id === receiverId) ?? null;
   const n = Number(amount);
   const sameCurrency = sender && currency === sender.currency;
+  const resolved = lookedUp === query.trim() && !looking;
 
-  const validate = (r: ReceiverMatch | null): Errors => {
+  // GOLDEN RULE 5: Error prevention and simple error handling (plain-language problem under each field)
+  const validate = (): Errors => {
     const e: Errors = {};
+    const q = query.trim();
     if (!sender) e.from = 'Choose the account to send from.';
-    if (!query.trim()) e.receiver = 'Enter the receiver account number or email.';
-    else if (!r) e.receiver = matches && matches.length > 1 ? 'Choose which of the receiver accounts to pay.' : errors.receiver ?? 'No matching account.';
-    else if (sender && r.account.account_id === sender.account_id) e.receiver = 'Sender and receiver accounts must be different.';
-    if (amount.trim() === '' || Number.isNaN(n)) e.amount = 'Enter an amount.';
-    else if (!(n > 0)) e.amount = 'Amount must be above zero.';
+    if (!q) e.receiver = 'Enter the receiver account number or email.';
+    else if (resolved && matches && matches.length === 0) e.receiver = `No account matches ${q}. Enter a 10-digit account number or the receiver's email.`;
+    else if (resolved && matches && matches.length > 1 && !receiver) e.receiver = `${q} has ${matches.length} accounts. Choose which one to pay.`;
+    else if (receiver && sender && receiver.account.account_id === sender.account_id) e.receiver = 'You cannot send money to the same account it comes from. Choose a different receiver.';
+    if (amount.trim() === '' || Number.isNaN(n)) e.amount = 'Enter an amount, in numbers.';
+    else if (!(n > 0)) e.amount = 'Amount must be more than zero.';
     else if (!/^\d{1,16}(\.\d{1,2})?$/.test(amount.trim())) e.amount = 'Use up to 16 digits and 2 decimals.';
-    else if (sender && sameCurrency && n > sender.balance) e.amount = `Amount is above the account balance of ${formatMoney(sender.balance, sender.currency)}.`;
+    else if (sender && sameCurrency && n > sender.balance) e.amount = `Amount cannot be more than the account balance (${formatMoney(sender.balance, sender.currency)}).`;
     if (!/^[A-Z]{3}$/.test(currency)) e.currency = 'Choose a currency.';
-    if (note.length > 80) e.note = `Notes hold 80 characters. Remove ${note.length - 80}.`;
+    if (note.length > 80) e.note = `The note is ${note.length} characters. Notes hold 80, so remove ${note.length - 80}.`;
     return e;
   };
+  const live = validate();
+  const valid = Object.keys(live).length === 0 && Boolean(receiver) && resolved;
+  const touch = (k: keyof Errors) => setTouched((t) => (t.has(k) ? t : new Set(t).add(k)));
+  // Lookup and balance problems show as soon as they are known; empty fields wait until the person leaves them.
+  const errors: Errors = Object.fromEntries(
+    Object.entries(live).filter(([k]) => touched.has(k as keyof Errors) || (k === 'receiver' && resolved && query.trim()) || (k === 'amount' && amount.trim()) || k === 'note'),
+  ) as Errors;
+  if (formError) errors.form = formError;
 
   const submit = async (ev: FormEvent) => {
     ev.preventDefault();
     if (!p || busy) return;
-    const r = receiver && receiver.account.account_id === receiverId && matches ? receiver : await lookup();
-    const e = validate(r);
-    setErrors(e);
-    const first = Object.keys(e)[0];
-    if (first) {
-      document.getElementById(`sm-${first}`)?.focus();
+    if (!valid) {
+      setTouched(new Set(Object.keys(live) as (keyof Errors)[]));
+      document.getElementById(`sm-${Object.keys(live)[0] ?? 'receiver'}`)?.focus();
       return;
     }
     setBusy(true);
+    setFormError('');
     try {
       const res = await sendMoney(
-        { sender_account_id: sender!.account_id, receiver_account_id: r!.account.account_id, amount: n, currency, transaction_type: type },
+        { sender_account_id: sender!.account_id, receiver_account_id: receiver!.account.account_id, amount: n, currency, transaction_type: type },
         p.customer,
         note,
       );
-      navigate(`/app/send/${res.transaction.transaction_ref}`, { state: { evaluation: res.evaluation, fresh: true } });
+      const t = res.transaction;
+      navigate(`/app/send/${t.transaction_ref}`, { state: { evaluation: res.evaluation, fresh: true } });
     } catch (err) {
-      setErrors({ form: (err as Error).message });
+      setFormError((err as Error).message);
       toast((err as Error).message, 'error');
       setBusy(false);
     }
@@ -126,6 +153,8 @@ export default function SendMoney() {
         <ArrowLeft size={14} aria-hidden="true" /> Dashboard
       </Link>
       <PageHead eyebrow="Send money" title="Send money" sub="Each transfer is scored before it is written. A transfer that trips a rule is held or blocked and shows up in the analyst queue." />
+      {/* GOLDEN RULE 4: Design dialogs to yield closure */}
+      <Steps steps={SEND_STEPS} current={0} />
       <DataView state={state} skeleton={<SkeletonRows rows={6} cols={2} />}>
         {(prof) => (
           <form className="card card-pad stack" onSubmit={submit} noValidate>
@@ -134,7 +163,10 @@ export default function SendMoney() {
               <Select
                 id="sm-from"
                 value={from}
-                onChange={(e) => setFrom(e.target.value)}
+                onChange={(e) => {
+                  setFrom(e.target.value);
+                  touch('from');
+                }}
                 aria-invalid={Boolean(errors.from)}
                 aria-describedby="sm-from-err"
                 options={prof.accounts.map((a) => ({ value: a.account_id, label: `${a.account_type} ${maskAccountNumber(a.account_number)}, ${formatMoney(a.balance, a.currency)}` }))}
@@ -143,7 +175,10 @@ export default function SendMoney() {
             </label>
 
             <div className="field">
-              <label htmlFor="sm-receiver">Receiver</label>
+              {/* GOLDEN RULE 1: Strive for consistency (same label style as every other field) */}
+              <label htmlFor="sm-receiver" className="field-label">
+                Receiver
+              </label>
               <div className="row-form">
                 <input
                   id="sm-receiver"
@@ -154,15 +189,29 @@ export default function SendMoney() {
                     setMatches(null);
                     setReceiverId('');
                   }}
-                  onBlur={() => query.trim() && !matches && lookup()}
+                  onBlur={() => {
+                    touch('receiver');
+                    if (query.trim() && query.trim() !== lookedUp) lookup();
+                  }}
+                  data-rule="5"
                   placeholder="Account number or email"
                   autoComplete="off"
                   aria-invalid={Boolean(errors.receiver)}
                   aria-describedby="sm-receiver-hint sm-receiver-err"
                   style={{ flex: 1 }}
                 />
-                <button type="button" className="btn btn-ghost" onClick={lookup} disabled={looking}>
-                  <Search size={14} aria-hidden="true" /> {looking ? 'Finding...' : 'Find'}
+                <button
+                  type="button"
+                  className="btn btn-ghost"
+                  onClick={() => {
+                    touch('receiver');
+                    lookup();
+                  }}
+                  disabled={looking}
+                >
+                  <Busy busy={looking} label="Finding...">
+                    <Search size={14} aria-hidden="true" /> Find
+                  </Busy>
                 </button>
               </div>
               {err('receiver')}
@@ -180,7 +229,10 @@ export default function SendMoney() {
                 <Select
                   aria-label="Receiver account"
                   value={receiverId}
-                  onChange={(e) => setReceiverId(e.target.value)}
+                  onChange={(e) => {
+                    setReceiverId(e.target.value);
+                    touch('receiver');
+                  }}
                   placeholder="Choose an account"
                   options={matches.map((m) => ({ value: m.account.account_id, label: `${m.account.account_type} ${maskAccountNumber(m.account.account_number)} (${m.account.currency})` }))}
                 />
@@ -190,7 +242,15 @@ export default function SendMoney() {
             <div className="row-form">
               <label className="field" style={{ flex: 2 }}>
                 <span>Amount</span>
-                <input id="sm-amount" className="input mono" inputMode="decimal" value={amount} onChange={(e) => setAmount(e.target.value)} aria-invalid={Boolean(errors.amount)} aria-describedby="sm-amount-err sm-amount-hint" />
+                <input
+                  id="sm-amount"
+                  className="input mono"
+                  inputMode="decimal"
+                  value={amount}
+                  onChange={(e) => setAmount(e.target.value)}
+                  onBlur={() => touch('amount')}
+                  data-rule="5"
+                  aria-invalid={Boolean(errors.amount)} aria-describedby="sm-amount-err sm-amount-hint" />
               </label>
               <label className="field" style={{ flex: 1 }}>
                 <span>Currency</span>
@@ -226,7 +286,7 @@ export default function SendMoney() {
               <span>
                 Note, optional <span className="mono" style={{ float: 'right', color: note.length > 80 ? 'var(--alert)' : undefined }}>{note.length}/80</span>
               </span>
-              <input id="sm-note" className="input" value={note} onChange={(e) => setNote(e.target.value)} aria-invalid={Boolean(errors.note)} aria-describedby="sm-note-err sm-note-hint" />
+              <input id="sm-note" className="input" value={note} onChange={(e) => setNote(e.target.value)} data-rule="5" aria-invalid={Boolean(errors.note)} aria-describedby="sm-note-err sm-note-hint" />
               <span className="field-hint" id="sm-note-hint">
                 Transactions has no note column, so the note is kept in the transfer's Audit_Trail entry.
               </span>
@@ -234,12 +294,19 @@ export default function SendMoney() {
             </label>
 
             {err('form')}
+            {!valid && !busy && (
+              <span className="field-hint" id="sm-ready-hint">
+                {looking ? 'Looking up the receiver...' : 'Send unlocks once the receiver is found and the amount is valid.'}
+              </span>
+            )}
             <div className="form-actions">
               <Link to="/app/dashboard" className="btn btn-ghost">
                 Cancel
               </Link>
-              <button type="submit" className="btn btn-brand" disabled={busy}>
-                {busy ? 'Checking...' : 'Send'}
+              <button type="submit" className="btn btn-brand" disabled={busy || !valid} data-rule="5" aria-describedby="sm-ready-hint">
+                <Busy busy={busy} label="Checking...">
+                  Send
+                </Busy>
               </button>
             </div>
           </form>
